@@ -138,8 +138,10 @@ OpenCLRuntime::OpenCLRuntime(const BackendConfig::PrecisionMode precision, const
             mCommandQueuePtr = std::make_shared<cl::CommandQueue>(*mContext, *mFirstGPUDevicePtr, properties, &res);
             MNN_CHECK_CL_SUCCESS(res, "commandQueue");
 
+//            mFirstGPUDevicePtr->getInfo(CL_DEVICE_LOCAL_MEM_SIZE, &mGPUGlobalMemeryCacheSize);
+//            MNN_PRINT("local mem cache size: %lu", mGPUGlobalMemeryCacheSize);
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, &mGPUGlobalMemeryCacheSize);
-//            MNN_PRINT("global mem cache size: %lu", mGPUGlobalMemeryCacheSize);
+
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &mGPUComputeUnits);
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &mMaxFreq);
             cl_device_fp_config fpConfig;

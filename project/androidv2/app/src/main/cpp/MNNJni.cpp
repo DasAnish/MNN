@@ -17,8 +17,6 @@
 #include "backend/cpu/CPUMatMul.hpp"
 #include "backend/cpu/CPUBackend.hpp"
 
-#define WIDTH 8
-
 using namespace MNN;
 using namespace MNN::Express;
 using namespace MNN::OpenCL;
@@ -71,7 +69,7 @@ void cpu() {
 }
 
 double gpu(int width = 32) {
-#define KERNEL 4
+#define KERNEL 3
 
 //defines for gemm2
 #define TS2 32
@@ -85,6 +83,16 @@ double gpu(int width = 32) {
 #undef WIDTH
 #endif
 #define WIDTH 8
+
+
+#define TSM 64                 // The tile-size in dimension M
+#define TSN 64                 // The tile-size in dimension N
+#define TSK 32                 // The tile-size in dimension K
+#define WPTN 8                 // The work-per-thread in dimension N
+#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
+#define WPTM 1
+#define RTSM (TSM/WPTM)
+#define LPT ((TSK*TSM)/(RTSM*RTSN)) // The loads-per-thread for a tile
 
 
     int res;
@@ -124,7 +132,8 @@ double gpu(int width = 32) {
             hostC[i][j] = 0.0f;
         }
     }
-#elif KERNEL == 4
+#endif
+#if KERNEL == 4
     int widthTiles = width;
     widthTiles /= WIDTH;
     if (width % WIDTH != 0)
@@ -158,6 +167,21 @@ double gpu(int width = 32) {
 //        MNN_PRINT("%f, %f, %f, %f", temp[j], temp[j+1], temp[j+2], temp[j+3]);
 //    }
 #endif
+#if KERNEL == 5
+    float hostA[width][width];
+    float hostBtrans[width][width];
+    float hostB[width][width];
+    float hostC[width][width];
+
+    for (int i = 0; i<width; i++) {
+        for (int j = 0; j < width; j++) {
+            hostA[i][j] = ((float) (i*width + j))/1000;
+            hostBtrans[i][j] = ((float) (i*width + j))/1000;
+            hostB[i][j] = 0.0f;
+            hostC[i][j] = 0.0f;
+        }
+    }
+#endif
 
 //    std::vector<int> shape({width, width});
 //    Tensor* tensorA = Tensor::create<float>(shape, hostA);
@@ -180,20 +204,32 @@ double gpu(int width = 32) {
 
 
     std::set<std::string> buildOptions;
+    std::stringstream option;
+//    buildOptions.emplace("-DTS3=32");
+//    buildOptions.
 #if KERNEL == 1
 //#ifdef KERNEL1
     cl::Kernel kernel = runtime->buildKernel("myGEMM", "gemm1", buildOptions);
 #elif KERNEL == 2
+    buildOptions.emplace("-DTS2=32");
     cl::Kernel kernel = runtime->buildKernel("myGEMM", "gemm2", buildOptions);
 #elif KERNEL == 3
+    option << "-DTS3=" << std::to_string(TS3) << " -DWPT=" << std::to_string(WPT)
+           << " -DRTS=" << std::to_string(RTS);
+    buildOptions.emplace(option.str());
     cl::Kernel kernel = runtime->buildKernel("myGEMM", "gemm3", buildOptions);
 #elif KERNEL == 4
     cl::Kernel kernel = runtime->buildKernel("myGEMM", "gemm4", buildOptions);
+#elif KERNEL == 5
+    cl:: Kernel kernel = runtime->buildKernel("myGEMM", "gemm5", buildOptions);
+    cl::Kernel transposeKernel = runtime->buildKernel("myGEMM", "transpose", buildOptions);
 #endif
 //    MNN_PRINT("Max local size: %lu", runtime->getMaxWorkGroupSize(kernel));
 
     res = 0;
     cl_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR;
+    res = 0;
+    int idx = 0;
 
 
 #if KERNEL == 4
@@ -202,32 +238,42 @@ double gpu(int width = 32) {
     cl::Buffer bufferB(context, flags, 4*adjustedWidth*width, hostB);
     cl::Buffer bufferC(context, flags, 4*adjustedWidth*width, hostC);
 
+    res |= kernel.setArg(idx++, adjustedWidth); // M
+    res |= kernel.setArg(idx++, adjustedWidth); // N
+    res |= kernel.setArg(idx++, adjustedWidth); // K
+
+#elif KERNEL == 5
+
+    cl::Buffer bufferBtrans(context, flags, 4*width*width, hostBtrans);
+
 #else
 
     cl::Buffer bufferA(context, flags, 4*width*width, hostA);
     cl::Buffer bufferB(context, flags, 4*width*width, hostB);
     cl::Buffer bufferC(context, flags, 4*width*width, hostC);
 
+    res |= kernel.setArg(idx++, width); // M
+    res |= kernel.setArg(idx++, width); // N
+    res |= kernel.setArg(idx++, width); // K
+
 #endif
 
-    res = 0;
-    int idx = 0;
-//    uint32_t size = static_cast<uint32_t>(width);
-    res |= kernel.setArg(idx++, width);
-    res |= kernel.setArg(idx++, width);
-    res |= kernel.setArg(idx++, width);
+
     res |= kernel.setArg(idx++, bufferA);
     res |= kernel.setArg(idx++, bufferB);//openCLBuffer(tensorB));
     res |= kernel.setArg(idx++, bufferC);//openCLBuffer(tensorC));
+
 #if KERNEL == 2
 #define TS TS2
 #elif KERNEL==3
 #define TS TS3
 #elif KERNEL==4
 #define TS TS4
+#elif KERNEL==5
+#define TS TSK
 #endif
 
-#if KERNEL == 2 || KERNEL == 3 || KERNEL == 4
+#if KERNEL == 2 || KERNEL == 3 || KERNEL == 4 || KERNEL == 5
 
     int numTiles = width / TS;
     if (width % TS != 0)
@@ -243,6 +289,26 @@ double gpu(int width = 32) {
 //#endif
 
     MNN_CHECK_CL_SUCCESS(res, "setArg");
+
+#if KERNEL == 5
+    idx = 0;
+    res = 0;
+    res |= transposeKernel.setArg(idx++, width);
+    res |= transposeKernel.setArg(idx++, width);
+    res |= transposeKernel.setArg(idx++, bufferBtrans);
+    res |= transposeKernel.setArg(idx++, bufferB);
+    MNN_CHECK_CL_SUCCESS(res, "transposeKernel.setArg");
+
+    uint32_t tGlobal0 = width,
+             tGlobal1 = width,
+             tLocal0 = 32,
+             tLocal1 = 32;
+    cl::NDRange tGlobalRange(tGlobal0, tGlobal1), tLocalRange(tLocal0, tLocal1);
+    std::vector<uint32_t> tGlobal({tGlobal0, tGlobal1}), tLocal({tLocal0, tLocal1});
+
+//    runKernel2D(transposeKernel, tGlobal, tLocal, runtime, nullptr);
+//    commandQueue.finish();
+#endif
 
     uint32_t width_uint = (uint32_t) width;
     cl::NDRange offsetRange(0, 0);
@@ -277,7 +343,16 @@ double gpu(int width = 32) {
 
     std::vector<uint32_t> global({global0, global1}), local({local0, local1});
     cl::NDRange globalRange(global0, global1), localRange(local0, local1);
+#elif KERNEL == 5
+    uint32_t global0 = width,
+             global1 = width / WPTN,
+             local0 = TSM,
+             local1 = TSN / WPTN;
 
+    MNN_PRINT("global0=%d, global1=%d, local0=%d, local1=%d", global0, global1, local0, local1);
+
+    std::vector<uint32_t> global({global0, global1}), local({local0, local1});
+    cl::NDRange globalRange(global0, global1), localRange(local0, local1);
 #endif
 
 //#define PROFILING
@@ -285,6 +360,10 @@ double gpu(int width = 32) {
 #ifndef PROFILING
     cl::Event event1;
     cl::Event copy = event1;
+#if KERNEL == 5
+    runKernel2D(transposeKernel, tGlobal, tLocal, runtime, nullptr);
+    commandQueue.finish();
+#endif
     runKernel2D(kernel, global, local, runtime, &event1);
 //    res = commandQueue.enqueueNDRangeKernel(kernel, offsetRange, globalRange, localRange,
 //                                      nullptr, &event1);
@@ -300,7 +379,7 @@ double gpu(int width = 32) {
     commandQueue.enqueueReadBuffer(bufferC, CL_TRUE, 0, read_size, hostC, nullptr, nullptr);
     commandQueue.finish();
 
-    MNN_PRINT("time: %f", runtime->getCostTime(&event1));
+
 //
 int width_ = width;
 #if KERNEL==4
@@ -309,11 +388,11 @@ int width_ = width;
 //    for (int i = 0; i < adjustedWidth * width; i++) {
 //        MNN_PRINT(, i)
 //    }
-    for (int i = 0; i < width; i++) {
+    for (int i = 0; i < 3; i++) {
         for (int j = 0; j < width; j+=4) {
-//            MNN_PRINT("(%2d, %2d):\t%f, %f, %f, %f", i, j,
-//                      hostC[i][j], hostC[i][j+1],
-//                      hostC[i][j+2], hostC[i][j+3]);
+            MNN_PRINT("(%2d, %2d):\t%f, %f, %f, %f", i, j,
+                      hostC[i][j], hostC[i][j+1],
+                      hostC[i][j+2], hostC[i][j+3]);
 //            MNN_PRINT("%f, %f, %f, %f, %f, %f, %f, %f",
 //                      hostC[i*width_ + j], hostC[i*width_ + j+1],
 //                      hostC[i*width_ + j+2], hostC[i*width_ + j+3],
@@ -330,8 +409,9 @@ int width_ = width;
 //            if (i == j-1)
 //                MNN_PRINT("hostC[%2d][%2d]: %5d %f", i, j, i*width + j, hostC[i][j]);
         }
+        MNN_PRINT("");
     }
-
+    MNN_PRINT("time: %f", runtime->getCostTime(&event1));
     return 0.0f;
 #else
     double avg_time = 0.0f;
@@ -407,7 +487,7 @@ Java_com_ad945_mnn_MainActivity_stringFromJNI(
 #ifndef PROFILING
 
     MNN_PRINT("starting");
-    gpu(33);
+    gpu(16);
 
 #else
 
