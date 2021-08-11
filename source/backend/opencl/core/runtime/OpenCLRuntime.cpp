@@ -89,12 +89,12 @@ OpenCLRuntime::OpenCLRuntime(const BackendConfig::PrecisionMode precision, const
                     MNN_PRINT("SVM capalibilties: NONE\n");
                 } else {
                     if (mSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) {
-                        MNN_PRINT("SVM capalibilties: SVM_FINE_GRAIN_BUFFER\n");
+//                        MNN_PRINT("SVM capalibilties: SVM_FINE_GRAIN_BUFFER\n");
                         if (mSvmCapabilities & CL_DEVICE_SVM_ATOMICS) {
-                            MNN_PRINT("SVM capalibilties: SVM_ATOMICS\n");
+//                            MNN_PRINT("SVM capalibilties: SVM_ATOMICS\n");
                         }
                     } else if (mSvmCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) {
-                        MNN_PRINT("SVM capalibilties: SVM_COARSE_GRAIN_BUFFER\n");
+//                        MNN_PRINT("SVM capalibilties: SVM_COARSE_GRAIN_BUFFER\n");
                     }
                 }
             }
@@ -139,6 +139,7 @@ OpenCLRuntime::OpenCLRuntime(const BackendConfig::PrecisionMode precision, const
             MNN_CHECK_CL_SUCCESS(res, "commandQueue");
 
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, &mGPUGlobalMemeryCacheSize);
+//            MNN_PRINT("global mem cache size: %lu", mGPUGlobalMemeryCacheSize);
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &mGPUComputeUnits);
             mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &mMaxFreq);
             cl_device_fp_config fpConfig;

@@ -7912,8 +7912,9 @@ public:
                 (event != NULL) ? &tmp : NULL),
             __ENQUEUE_NDRANGE_KERNEL_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
+        if (event != NULL && err == CL_SUCCESS) {
             *event = tmp;
+        }
 
         return err;
     }
