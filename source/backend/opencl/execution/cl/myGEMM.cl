@@ -1,5 +1,9 @@
 //#include "../../../../../../../../Android/Sdk/ndk/21.1.6352462/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/9.0.8/include/opencl-c.h"
 // First naive implementation
+#ifndef KERNEL
+#define KERNEL 6
+#endif
+#if KERNEL == 1
 __kernel void gemm1(const int M, const int N, const int K,
                       const __global float* A,
                       const __global float* B,
@@ -26,10 +30,12 @@ __kernel void gemm1(const int M, const int N, const int K,
 
     }
     // Store the result
-    C[globalCol + globalRow*M] = acc;
+    C[globalCol*M + globalRow] = acc;
 
 
 }
+
+#elif KERNEL == 2
 #define TS2 32
 // Tiled and coalesced version
 __kernel void gemm2(const int M, const int N, const int K,
@@ -84,10 +90,13 @@ __kernel void gemm2(const int M, const int N, const int K,
     C[globalCol*M + globalRow] = acc;
 }
 
-//#define TS3 32
-//#define WPT TS3 * TS3 / 256
-//#define RTS TS3 / (WPT)
+#elif KERNEL == 3
 
+#ifndef  TS3
+#define TS3 32
+#define WPT TS3 * TS3 / 256
+#define RTS TS3 / (WPT)
+#endif
 
 // Increased the amount of work-per-thread by a factor WPT
 __kernel void gemm3(const int M, const int N, const int K,
@@ -156,6 +165,10 @@ __kernel void gemm3(const int M, const int N, const int K,
     }
 }
 
+#elif KERNEL == 4
+
+#ifndef WIDTH
+#define TS4 32
 #define WIDTH 8
 #if WIDTH == 1
 typedef float floatX;
@@ -168,8 +181,8 @@ typedef float8 floatX;
 #elif WIDTH == 16
 typedef float16 floatX;
 #endif
+#endif
 
-#define TS4 32
 
 
 // Use wider data types
@@ -442,48 +455,22 @@ acc.sf += dot(vecB.scdef, vecAftrans.scdef);
 }
 
 
-#define TRANSPOSEX 32
-#define TRANSPOSEY 32
-__kernel void transpose(const int P, const int Q,
-                        const __global float* input,
-                        __global float* output) {
 
-    // Thread identifiers
-    const int tx = get_local_id(0);
-    const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0)*TRANSPOSEX + tx; // 0..P
-    const int ID1 = get_group_id(1)*TRANSPOSEY + ty; // 0..Q
 
-    // Set-up the local memory for shuffling
-    __local float buffer[TRANSPOSEX][TRANSPOSEY];
 
-    // Swap the x and y coordinates to perform the rotation (coalesced)
-    if (ID0 < P && ID1 < Q) {
-        buffer[ty][tx] = input[ID1*P + ID0];
-    }
 
-    // Synchronise all threads
-    barrier(CLK_LOCAL_MEM_FENCE);
 
-    // We don't have to swap the x and y thread indices here,
-    // because that's already done in the local memory
-    const int newID0 = get_group_id(1)*TRANSPOSEY + tx;
-    const int newID1 = get_group_id(0)*TRANSPOSEX + ty;
-
-    // Store the transposed result (coalesced)
-    if (newID0 < Q && newID1 < P) {
-        output[newID1*Q + newID0] = buffer[tx][ty];
-    }
-}
-
-#define TSM 64                 // The tile-size in dimension M
+#elif KERNEL == 5
+#ifndef TSM                // The tile-size in dimension M
+#define TSM 64
 #define TSN 64                 // The tile-size in dimension N
 #define TSK 32                 // The tile-size in dimension K
 #define WPTN 8                 // The work-per-thread in dimension N
-#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
 #define WPTM 1
+#endif
+#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
 #define RTSM (TSM/WPTM)
-#define LPT ((TSK*TSM)/(RTSM*RTSN)) // The loads-per-thread for a tile
+#define LPT ((TSK)/(RTSN)) // The loads-per-thread for a tile
 
 // Pre-transpose the input matrix B and use rectangular tiles
 __kernel void gemm5(const int M, const int N, const int K,
@@ -499,8 +486,8 @@ __kernel void gemm5(const int M, const int N, const int K,
     const int globalCol = TSN*get_group_id(1) + col; // 0..N
 
     // Local memory to fit a tile of A and B
-    __local float Asub[TSK+4][TSM];
-    __local float Bsub[TSN][TSK+4];
+    __local float Asub[TSK][TSM];
+    __local float Bsub[TSN][TSK+2];
 
     // Initialise the accumulation registers
     float acc[WPTN];
@@ -540,30 +527,501 @@ __kernel void gemm5(const int M, const int N, const int K,
         C[(globalCol + w*RTSN)*M + globalRow] = acc[w];
     }
 }
+#elif KERNEL == 6
+
+#ifndef TSM
+#define TSM 128                // The tile-size in dimension M
+#define TSN 128                // The tile-size in dimension N
+#define TSK 16                 // The tile-size in dimension K
+#define WPTM 8                 // The work-per-thread in dimension M
+#define WPTN 8                 // The work-per-thread in dimension N
+#endif
+
+#define RTSM (TSM/WPTM)        // The reduced tile-size in dimension M
+#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
+#define LPTA ((TSK*TSM)/(RTSM*RTSN)) // Loads-per-thread for A
+#define LPTB ((TSK*TSN)/(RTSM*RTSN)) // Loads-per-thread for B
+
+// Use 2D register blocking (further increase in work per thread)
+__kernel void gemm6(const int M, const int N, const int K,
+                       __global float* A,
+                       __global float* B,
+                      __global float* C,
+                      const int numTiles) {
+
+    // Thread identifiers
+    const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
+    const int tidn = get_local_id(1); // Local col ID (max: TSN/WPTN)
+    const int offsetM = TSM*get_group_id(0); // Work-group offset
+    const int offsetN = TSN*get_group_id(1); // Work-group offset
+
+    if (get_global_id(0) == 0 && get_global_id(1) == 0) {
+        printf("6\nTSM: %d || WPTM: %d || RTSM: %d\n", TSM, WPTM, RTSM);
+        printf("TSN: %d || WPTN: %d || RTSN: %d", TSN, WPTN, RTSN);
+    }
+
+    // Local memory to fit a tile of A and B
+    __local float Asub[TSK][TSM+2];
+    __local float Bsub[TSK][TSN+2];
+
+    // Allocate register space
+    float Areg;
+    float Breg[WPTN];
+    float acc[WPTM][WPTN];
+
+    // Initialise the accumulation registers
+    for (int wm=0; wm<WPTM; wm++) {
+        for (int wn=0; wn<WPTN; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+
+    // Loop over all tiles
+//    int numTiles = K/TSK;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        for (int la=0; la<LPTA; la++) {
+            int tid = tidn*RTSM + tidm;
+            int id = la*RTSN*RTSM + tid;
+            int row = id % TSM;
+            int col = id / TSM;
+            int tiledIndex = TSK*t + col;
+//            if (tiledIndex >= K && offsetM + row >= M)
+//                Asub[col][row] = 0.0f;
+//            else
+                Asub[col][row] = A[tiledIndex*M + offsetM + row];
+//            if (tiledIndex >= K && offsetN + row >= N)
+//                Bsub[row][col] = 0.0f;
+//            else
+                Bsub[col][row] = B[tiledIndex*N + offsetN + row];
+        }
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        // Loop over the values of a single tile
+        for (int k=0; k<TSK; k++) {
+
+            // Cache the values of Bsub in registers
+            for (int wn=0; wn<WPTN; wn++) {
+                int col = tidn + wn*RTSN;
+                Breg[wn] = Bsub[k][col];
+            }
+
+            barrier(CLK_LOCAL_MEM_FENCE);
+            // Perform the computation
+            for (int wm=0; wm<WPTM; wm++) {
+                int row = tidm + wm*RTSM;
+                Areg = Asub[k][row];
+                for (int wn=0; wn<WPTN; wn++) {
+                    acc[wm][wn] += Areg * Breg[wn];
+                }
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+        }
+
+        // Synchronise before loading the next tile
+
+    }
+
+    // Store the final results in C
+    for (int wm=0; wm<WPTM; wm++) {
+        int globalRow = offsetM + tidm + wm*RTSM;
+        for (int wn=0; wn<WPTN; wn++) {
+            int globalCol = offsetN + tidn + wn*RTSN;
+            C[globalCol*M + globalRow] = acc[wm][wn];
+        }
+    }
+}
+
+#endif
+
+#if KERNEL == 5 || KERNEL == 6 || KERNEL == 7 || KERNEL == 8
+#ifndef TRANSPOSEX
+#define TRANSPOSEX 32
+#define TRANSPOSEY 32
+#endif
+
+__kernel void transpose(const int P, const int Q,
+                        const __global float* input,
+                        __global float* output) {
+
+    // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0)*TRANSPOSEX + tx; // 0..P
+    const int ID1 = get_group_id(1)*TRANSPOSEY + ty; // 0..Q
+
+    // Set-up the local memory for shuffling
+    __local float buffer[TRANSPOSEX][TRANSPOSEY];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < P && ID1 < Q) {
+        buffer[ty][tx] = input[ID1*P + ID0];
+    }
+
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // We don't have to swap the x and y thread indices here,
+    // because that's already done in the local memory
+    const int newID0 = get_group_id(1)*TRANSPOSEY + tx;
+    const int newID1 = get_group_id(0)*TRANSPOSEX + ty;
+
+    // Store the transposed result (coalesced)
+    if (newID0 < Q && newID1 < P) {
+        output[newID1*Q + newID0] = buffer[tx][ty];
+    }
+}
+
+#endif
+
+
+#if KERNEL == 7
+
+
+#ifndef WIDTH
+#define TS4 32
+#define WIDTH 4
+#endif
+
+#if WIDTH == 1
+typedef float floatX;
+#elif WIDTH == 2
+typedef float2 floatX;
+#elif WIDTH == 4
+typedef float4 floatX;
+#elif WIDTH == 8
+typedef float8 floatX;
+#elif WIDTH == 16
+typedef float16 floatX;
+#endif
+
+
+#ifndef TSM
+#define TSM 128                // The tile-size in dimension M
+#define TSN 128                // The tile-size in dimension N
+#define TSK 16                 // The tile-size in dimension K
+#define WPTM 8                 // The work-per-thread in dimension M
+#define WPTN 8                 // The work-per-thread in dimension N
+#endif
+
+#define RTSM (TSM/WPTM)        // The reduced tile-size in dimension M
+#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
+#define LPTA ((TSK*TSM)/(RTSM*RTSN)) // Loads-per-thread for A
+#define LPTB ((TSK*TSN)/(RTSM*RTSN)) // Loads-per-thread for B
+
+// Wider loads combined with 2D register blocking
+__kernel void gemm7(const int M, const int N, const int K,
+                      const __global floatX* A,
+                      const __global floatX* B,
+                      __global float* C,
+                      const int numTiles) {
+
+    if (get_global_id(0) == 0 && get_global_id(1) == 0) {
+        printf("7\nTSM: %d || WPTM: %d || RTSM: %d\n", TSM, WPTM, RTSM);
+        printf("TSN: %d || WPTN: %d || RTSN: %d\n", TSN, WPTN, RTSN);
+        printf("LPTA: %d || LPTB: %d", LPTA, LPTB);
+    }
+    
+    // Thread identifiers
+    const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
+    const int tidn = get_local_id(1); // Local col ID (max: TSN/WPTN)
+    const int offsetM = TSM*get_group_id(0); // Work-group offset
+    const int offsetN = TSN*get_group_id(1); // Work-group offset
+ 
+    // Local memory to fit a tile of A and B
+    __local float Asub[TSK][TSM];
+    __local float Bsub[TSK][TSN+2];
+ 
+    // Allocate register space
+    float Areg;
+    float Breg[WPTN];
+    float acc[WPTM][WPTN];
+ 
+    // Initialise the accumulation registers
+    for (int wm=0; wm<WPTM; wm++) {
+        for (int wn=0; wn<WPTN; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+    
+    // Loop over all tiles
+//    int numTiles = K/TSK;
+    for (int t=0; t<numTiles; t++) {
+ 
+        // Load one tile of A and B into local memory
+        for (int la=0; la<LPTA/WIDTH; la++) {
+            int tid = tidn*RTSM + tidm;
+            int id = la*RTSN*RTSM + tid;
+            int row = id % (TSM/WIDTH);
+            int col = id / (TSM/WIDTH);
+ 
+            // Load the values (wide vector load)
+            int tiledIndex = TSK*t + col;
+            floatX vecA = A[tiledIndex*(M/WIDTH) + offsetM/WIDTH + row];
+            floatX vecB = B[tiledIndex*(N/WIDTH) + offsetN/WIDTH + row];
+ 
+            // Store the loaded vectors into local memory
+            #if WIDTH == 1
+                Asub[col][row] = vecA;
+                Asub[col][row] = vecA;
+            #elif WIDTH == 2
+                Asub[col][WIDTH*row + 0] = vecA.x;
+                Asub[col][WIDTH*row + 1] = vecA.y;
+            #elif WIDTH == 4
+                Asub[col][WIDTH*row + 0] = vecA.x;
+                Asub[col][WIDTH*row + 1] = vecA.y;
+                Asub[col][WIDTH*row + 2] = vecA.z;
+                Asub[col][WIDTH*row + 3] = vecA.w;
+            #endif
+            #if WIDTH == 1
+                Bsub[col][row] = vecB;
+                Bsub[col][row] = vecB;
+            #elif WIDTH == 2
+                Bsub[col][WIDTH*row + 0] = vecB.x;
+                Bsub[col][WIDTH*row + 1] = vecB.y;
+            #elif WIDTH == 4
+                Bsub[col][WIDTH*row + 0] = vecB.x;
+                Bsub[col][WIDTH*row + 1] = vecB.y;
+                Bsub[col][WIDTH*row + 2] = vecB.z;
+                Bsub[col][WIDTH*row + 3] = vecB.w;
+            #endif
+        }
+        
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+ 
+        // Loop over the values of a single tile
+        for (int k=0; k<TSK; k++) {
+ 
+            // Cache the values of Bsub in registers
+            for (int wn=0; wn<WPTN; wn++) {
+                int col = tidn + wn*RTSN;
+                Breg[wn] = Bsub[k][col];
+            }
+ 
+            // Perform the computation
+            for (int wm=0; wm<WPTM; wm++) {
+                int row = tidm + wm*RTSM;
+                Areg = Asub[k][row];
+                for (int wn=0; wn<WPTN; wn++) {
+                    acc[wm][wn] += Areg * Breg[wn];
+                }
+            }
+        }
+ 
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+ 
+    // Store the final results in C
+    for (int wm=0; wm<WPTM; wm++) {
+        int globalRow = offsetM + tidm + wm*RTSM;
+        for (int wn=0; wn<WPTN; wn++) {
+            int globalCol = offsetN + tidn + wn*RTSN;
+            C[globalCol*M + globalRow] = acc[wm][wn];
+        }
+    }
+}
+
+#endif
 
 
 
+#if KERNEL == 8
+
+#ifndef WIDTH
+#define TS4 32
+#define WIDTH 4
+#endif
+
+#if WIDTH == 1
+typedef float floatX;
+#elif WIDTH == 2
+typedef float2 floatX;
+#elif WIDTH == 4
+typedef float4 floatX;
+#elif WIDTH == 8
+typedef float8 floatX;
+#elif WIDTH == 16
+typedef float16 floatX;
+#endif
 
 
+#ifndef TSM
+#define TSM 128                // The tile-size in dimension M
+#define TSN 128                // The tile-size in dimension N
+#define TSK 16                 // The tile-size in dimension K
+#define WPTM 8                 // The work-per-thread in dimension M
+#define WPTN 8                 // The work-per-thread in dimension N
+#endif
 
+#define RTSM (TSM/WPTM)        // The reduced tile-size in dimension M
+#define RTSN (TSN/WPTN)        // The reduced tile-size in dimension N
+#define LPTA ((TSK*TSM)/(RTSM*RTSN)) // Loads-per-thread for A
+#define LPTB ((TSK*TSN)/(RTSM*RTSN)) // Loads-per-thread for B
 
+// Wider loads combined with 2D register blocking
+__kernel void gemm8(const int M, const int N, const int K,
+                      const __global floatX* A,
+                      const __global floatX* B,
+                      __global float* C,
+                      const int numTiles) {
 
+    if (get_global_id(0) == 0 && get_global_id(1) == 0) {
+        printf("8\nTSM: %d || WPTM: %d || RTSM: %d\n", TSM, WPTM, RTSM);
+        printf("TSN: %d || WPTN: %d || RTSN: %d\n", TSN, WPTN, RTSN);
+        printf("LPTA: %d || LPTB: %d", LPTA, LPTB);
+    }
+    
+    // Thread identifiers
+    const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
+    const int tidn = get_local_id(1); // Local col ID (max: TSN/WPTN)
+    const int offsetM = TSM*get_group_id(0); // Work-group offset
+    const int offsetN = TSN*get_group_id(1); // Work-group offset
+ 
+    // Local memory to fit a tile of A and B
+    __local float Asub[2][TSK*TSM];
+    __local float Bsub[2][TSK*TSN];
+ 
+    // Allocate register space
+    float Areg;
+    float Breg[WPTN];
+    float acc[WPTM][WPTN];
+ 
+    // Initialise the accumulation registers
+    for (int wm=0; wm<WPTM; wm++) {
+        for (int wn=0; wn<WPTN; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+    
+    
+    // Load one tile of A and B into local memory
+        for (int la=0; la<LPTA/WIDTH; la++) {
+            int tid = tidn*RTSM + tidm;
+            int id = la*RTSN*RTSM + tid;
+            int row = id % (TSM/WIDTH);
+            int col = id / (TSM/WIDTH);
+ 
+            // Load the values (wide vector load)
+            int tiledIndex = col; // t = 0
+            floatX vecA = A[tiledIndex*(M/WIDTH) + offsetM/WIDTH + row];
+            floatX vecB = B[tiledIndex*(N/WIDTH) + offsetN/WIDTH + row];
+ 
+            // Store the loaded vectors into local memory
+            #if WIDTH == 1
+                Asub[0][col*TSM + row] = vecA;
+                Asub[0][col*TSM + row] = vecA;
+            #elif WIDTH == 2
+                Asub[0][col*TSM + WIDTH*row + 0] = vecA.x;
+                Asub[0][col*TSM + WIDTH*row + 1] = vecA.y;
+            #elif WIDTH == 4
+                Asub[0][col*TSM + WIDTH*row + 0] = vecA.x;
+                Asub[0][col*TSM + WIDTH*row + 1] = vecA.y;
+                Asub[0][col*TSM + WIDTH*row + 2] = vecA.z;
+                Asub[0][col*TSM + WIDTH*row + 3] = vecA.w;
+            #endif
+            #if WIDTH == 1
+                Bsub[0][col*TSM + row] = vecB;
+                Bsub[0][col*TSM + row] = vecB;
+            #elif WIDTH == 2
+                Bsub[0][col*TSM + WIDTH*row + 0] = vecB.x;
+                Bsub[0][col*TSM + WIDTH*row + 1] = vecB.y;
+            #elif WIDTH == 4
+                Bsub[0][col*TSM + WIDTH*row + 0] = vecB.x;
+                Bsub[0][col*TSM + WIDTH*row + 1] = vecB.y;
+                Bsub[0][col*TSM + WIDTH*row + 2] = vecB.z;
+                Bsub[0][col*TSM + WIDTH*row + 3] = vecB.w;
+            #endif
+        }
+    
+    // Loop over all tiles
+//    int numTiles = K/TSK;
+    for (int t=0; t<numTiles; t++) {
 
+        barrier(CLK_LOCAL_MEM_FENCE);
+ 
+        // Load one tile of A and B into local memory
+        int tt = t+1;
+        if (tt < numTiles) {
+        for (int la=0; la<LPTA/WIDTH; la++) {
+            int tid = tidn*RTSM + tidm;
+            int id = la*RTSN*RTSM + tid;
+            int row = id % (TSM/WIDTH);
+            int col = id / (TSM/WIDTH);
 
+            // Load the values (wide vector load)
+            int tiledIndex = TSK*tt + col;
+            floatX vecA = A[tiledIndex*(M/WIDTH) + offsetM/WIDTH + row];
+            floatX vecB = B[tiledIndex*(N/WIDTH) + offsetN/WIDTH + row];
 
+            // Store the loaded vectors into local memory
+            #if WIDTH == 1
+                Asub[tt%2][col*TSM + row] = vecA;
+                Asub[tt%2][col*TSM + row] = vecA;
+            #elif WIDTH == 2
+                Asub[tt%2][col*TSM + WIDTH*row + 0] = vecA.x;
+                Asub[tt%2][col*TSM + WIDTH*row + 1] = vecA.y;
+            #elif WIDTH == 4
+                Asub[tt%2][col*TSM + WIDTH*row + 0] = vecA.x;
+                Asub[tt%2][col*TSM + WIDTH*row + 1] = vecA.y;
+                Asub[tt%2][col*TSM + WIDTH*row + 2] = vecA.z;
+                Asub[tt%2][col*TSM + WIDTH*row + 3] = vecA.w;
+            #endif
+            #if WIDTH == 1
+                Bsub[tt%2][col*TSN + row] = vecB;
+                Bsub[tt%2][col*TSN + row] = vecB;
+            #elif WIDTH == 2
+                Bsub[tt%2][col*TSN + WIDTH*row + 0] = vecB.x;
+                Bsub[tt%2][col*TSN + WIDTH*row + 1] = vecB.y;
+            #elif WIDTH == 4
+                Bsub[tt%2][col*TSN + WIDTH*row + 0] = vecB.x;
+                Bsub[tt%2][col*TSN + WIDTH*row + 1] = vecB.y;
+                Bsub[tt%2][col*TSN + WIDTH*row + 2] = vecB.z;
+                Bsub[tt%2][col*TSN + WIDTH*row + 3] = vecB.w;
+            #endif
+        }
+        }
+        
+        // Synchronise to make sure the tile is loaded
 
+ 
+        // Loop over the values of a single tile
+        for (int k=0; k<TSK; k++) {
+ 
+            // Cache the values of Bsub in registers
+            for (int wn=0; wn<WPTN; wn++) {
+                int col = tidn + wn*RTSN;
+                Breg[wn] = Bsub[t%2][k*TSN + col];
+            }
+ 
+            // Perform the computation
+            for (int wm=0; wm<WPTM; wm++) {
+                int row = tidm + wm*RTSM;
+                Areg = Asub[t%2][k*TSM + row];
+                for (int wn=0; wn<WPTN; wn++) {
+                    acc[wm][wn] += Areg * Breg[wn];
+                }
+            }
+        }
+ 
+        // Synchronise before loading the next tile
+//        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+ 
+    // Store the final results in C
+    for (int wm=0; wm<WPTM; wm++) {
+        int globalRow = offsetM + tidm + wm*RTSM;
+        for (int wn=0; wn<WPTN; wn++) {
+            int globalCol = offsetN + tidn + wn*RTSN;
+            C[globalCol*M + globalRow] = acc[wm][wn];
+        }
+    }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+#endif
 
