@@ -927,6 +927,7 @@ Arguments:
 a: a variable representing a matrix "a"
 b: a variable representing a matrix "b"
 tranposeA: If true, "a" is transposed before multiplication.
+tranposeA: If true, "a" is transposed before multiplication.
 tranposeB: If true, "b" is transposed before multiplication.
 Returns:
 The product variable.

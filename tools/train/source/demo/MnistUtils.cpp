@@ -28,15 +28,15 @@ using namespace MNN;
 using namespace MNN::Express;
 using namespace MNN::Train;
 
-void MnistUtils::train(std::shared_ptr<Module> model, std::string root) {
-    {
-        // Load snapshot
-        auto para = Variable::load("mnist.snapshot.mnn");
-        model->loadParameters(para);
-    }
+void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwardType forwardType) {
+//    {
+//        // Load snapshot
+//        auto para = Variable::load("mnist.snapshot.mnn");
+//        model->loadParameters(para);
+//    }
     auto exe = Executor::getGlobalExecutor();
     BackendConfig config;
-    exe->setGlobalExecutorConfig(MNN_FORWARD_CUDA, config, 4);
+    exe->setGlobalExecutorConfig(forwardType, config, 1);
     std::shared_ptr<SGD> sgd(new SGD(model));
     sgd->setMomentum(0.9f);
     // sgd->setMomentum2(0.99f);
@@ -70,9 +70,13 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root) {
             dataLoader->reset();
             model->setIsTraining(true);
             Timer _100Time;
+            Timer _iterTimer;
             int lastIndex = 0;
             int moveBatchSize = 0;
+            auto meanForwardTime = 0.0f;
+            auto meanBackwardTime = 0.0f;
             for (int i = 0; i < iterations; i++) {
+//                MNN_PRINT("New Iteration %i\n", i);
                 // AUTOTIME;
                 auto trainData  = dataLoader->next();
                 auto example    = trainData[0];
@@ -81,11 +85,28 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root) {
                 moveBatchSize += example.first[0]->getInfo()->dim[0];
 
                 // Compute One-Hot
+//                MNN_PRINT("HERE1");
                 auto newTarget = _OneHot(_Cast<int32_t>(example.second[0]), _Scalar<int>(10), _Scalar<float>(1.0f),
                                          _Scalar<float>(0.0f));
 
+//                int padding_data[] = {0, 0, 0, 0, 0, 0, 0, 0};
+//                auto padding = _Const(padding_data, {4, 2}, NCHW, halide_type_of<int>());
+//                MNN_PRINT("DEBUG: Model_forward");
+//                MNN_PRINT("%d", example.first[0]->getInfo()->dim[2]);
+//                int batch
                 auto predict = model->forward(example.first[0]);
+//                MNN_PRINT("HERE2");
+
                 auto loss    = _CrossEntropy(predict, newTarget);
+//                MNN_PRINT("HERE3");
+                auto lossValue = loss->readMap<float>()[0];
+//                MNN_PRINT("HERE4");
+//                MNN_PRINT("LOSS = %f", lossValue);
+                auto forwardTime = (float)_iterTimer.durationInUs() / 1000.0f;
+//                MNN_PRINT("HERE5");
+//                MNN_PRINT("Forward Time %f", forwardTime);
+                meanForwardTime += forwardTime/10.0;
+                _iterTimer.reset();
 //#define DEBUG_GRAD
 #ifdef DEBUG_GRAD
                 {
@@ -110,7 +131,28 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root) {
 #endif
                 float rate   = LrScheduler::inv(0.01, epoch * iterations + i, 0.0001, 0.75);
                 sgd->setLearningRate(rate);
+
+//                MNN_PRINT("Start SGD Step");
+//                MNN_PRINT("HERE6");
+                sgd->step(loss);
+//                MNN_PRINT("HERE7");
+                meanBackwardTime += (((float)_iterTimer.durationInUs() / 1000.0f) - forwardTime)/10.0;
+                _iterTimer.reset();
+//                MNN_PRINT("FIN SGD Step");
+
+
+
                 if (moveBatchSize % (10 * batchSize) == 0 || i == iterations - 1) {
+#ifdef MNN_USE_LOGCAT
+                    MNN_PRINT("epoch: %i %i/%i\tloss: %f\tlr: %f\ttime: %f ms / %i iter",
+                              epoch, moveBatchSize, dataLoader->size(), loss->readMap<float>()[0], rate, (float)_100Time.durationInUs() / 1000.0f,
+                              (i - lastIndex));
+                    MNN_PRINT("Forward Time: %f ms\tBackward Time: %f ms\t", meanForwardTime, meanBackwardTime); // NOTE this is not correct if i == iterations - 1
+                    _100Time.reset();
+                    lastIndex = i;
+                    meanForwardTime = 0;
+                    meanBackwardTime = 0;
+#else
                     std::cout << "epoch: " << (epoch);
                     std::cout << "  " << moveBatchSize << " / " << dataLoader->size();
                     std::cout << " loss: " << loss->readMap<float>()[0];
@@ -119,8 +161,8 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root) {
                     std::cout.flush();
                     _100Time.reset();
                     lastIndex = i;
+#endif
                 }
-                sgd->step(loss);
             }
         }
         Variable::save(model->parameters(), "mnist.snapshot.mnn");

@@ -6,7 +6,11 @@ __constant sampler_t SAMPLER = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP |
 __kernel void gemm(__read_only image2d_t uInput, __read_only image2d_t uKernel, __write_only image2d_t uOutput,
                    __private const int width, __private const int height, __private const int multiLength, __private const int alpha2) {
     
-    int2 pos = (int2)(get_global_id(0), get_global_id(1)); 
+    int2 pos = (int2)(get_global_id(0), get_global_id(1));
+
+    if (pos.x == 0 && pos.y == 0){
+        printf("gemm1: width: %d | heigth: %d | srcChannelC4: %d | alpha2: %d\n", width, height, srcChannelC4, alpha2);
+    }
     if (pos.x < width*height && pos.y < alpha2) {
         
         const int pos_x = pos.x % width;

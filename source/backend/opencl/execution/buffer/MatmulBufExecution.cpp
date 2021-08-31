@@ -13,11 +13,96 @@
 namespace MNN {
 namespace OpenCL {
 
-MatMulBufExecution::MatMulBufExecution(const std::vector<Tensor *> &inputs, const MNN::Op *op, Backend *backend,
-                                 bool transposeA, bool transposeB) : Execution(backend)
-                                 , mTransposeA(transposeA), mTransposeB(transposeB){
-    mOpenCLBackend = static_cast<OpenCLBackend *>(backend);
-}
+
+    MatMulBufExecution::MatMulBufExecution(const std::vector<Tensor *> &inputs, const MNN::Op *op, Backend *backend,
+                                           bool transposeA, bool transposeB) : Execution(backend)
+                                            , mTransposeA(transposeA), mTransposeB(transposeB){
+        mOpenCLBackend = static_cast<OpenCLBackend *>(backend);
+        MNN_PRINT("HERE");
+    }
+
+#define CUSTOM_KERNEL
+
+#ifdef CUSTOM_KERNEL
+
+#define WIDTH 4
+#define TS 32
+//#define
+    ErrorCode MatMulBufExecution::onResize(const std::vector<Tensor *> &inputs,
+                                           const std::vector<Tensor *> &outputs) {
+        MNN_PRINT("called matmulbuf onresize");
+
+        auto runtime = mOpenCLBackend->getOpenCLRuntime();
+
+
+        Tensor *input0 = inputs[0];
+        Tensor *input1 = inputs[1];
+        Tensor *output = outputs[0];
+
+        std::vector<int> input0Shape = tensorShapeFormat(input0);
+        std::vector<int> input1Shape = tensorShapeFormat(input1);
+        std::vector<int> outputShape = tensorShapeFormat(output);
+
+        if (mKernel.get() == nullptr) {
+            std::set<std::string> buildOptions;
+            buildOptions.emplace("-DBIAS -DKERNEL=4 -DWIDTH=4 -DTS4=32");
+
+            mKernel = runtime->buildKernel("myGEMM", "gemm4", buildOptions);
+        }
+
+        if (inputs.size() > 2) {
+            Tensor *input2 = inputs[2];
+            std::vector<int> shape = tensorShapeFormat(input2);
+            MNN_PRINT("bias shape: %d, %d, %d, %d", shape.at(0), shape.at(1), shape.at(2), shape.at(3));
+        }
+
+        cl_int res = CL_SUCCESS;
+
+//        if
+
+        return NO_ERROR;
+    }
+
+    ErrorCode MatMulBufExecution::onExecute(const std::vector<Tensor *> &inputs,
+                                            const std::vector<Tensor *> &outputs) {
+        MNN_PRINT("Called matmulbuf onexecute");
+
+        MNN_PRINT("mTransposeA=%d | mTransposeB=%d", mTransposeA, mTransposeB);
+        Tensor *input0 = inputs[0];
+        Tensor *input1 = inputs[1];
+        Tensor *output = outputs[0];
+
+        std::vector<int> input0Shape = tensorShapeFormat(input0);
+        std::vector<int> input1Shape = tensorShapeFormat(input1);
+        std::vector<int> outputShape = tensorShapeFormat(output);
+
+        MNN_PRINT("inputs.size %d", inputs.size());
+        if (inputs.size() > 2) {
+            Tensor *input2 = inputs[2];
+            std::vector<int> shape = tensorShapeFormat(input2);
+            MNN_PRINT("bias shape: %d, %d, %d, %d", shape.at(0), shape.at(1), shape.at(2), shape.at(3));
+        }
+
+        MNN_PRINT("inputShape0: %d, %d, %d, %d", input0Shape.at(0), input0Shape.at(1),
+                                                 input0Shape.at(2), input0Shape.at(3));
+        MNN_PRINT("inputShape1: %d, %d, %d, %d", input1Shape.at(0), input1Shape.at(1),
+                                                 input1Shape.at(2), input1Shape.at(3));
+        MNN_PRINT("outputShape: %d, %d, %d, %d", outputShape.at(0), outputShape.at(1),
+                                                 outputShape.at(2), outputShape.at(3));
+
+//        throw -1;
+
+        return NO_ERROR;
+    }
+
+
+#else
+//
+//MatMulBufExecution::MatMulBufExecution(const std::vector<Tensor *> &inputs, const MNN::Op *op, Backend *backend,
+//                                 bool transposeA, bool transposeB) : Execution(backend)
+//                                 , mTransposeA(transposeA), mTransposeB(transposeB){
+//    mOpenCLBackend = static_cast<OpenCLBackend *>(backend);
+//}
 ErrorCode MatMulBufExecution::onResize(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
     auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
@@ -124,16 +209,21 @@ ErrorCode MatMulBufExecution::onExecute(const std::vector<Tensor *> &inputs, con
     return NO_ERROR;
 }
 
-class MatMulBufCreator : public OpenCLBackend::Creator {
-public:
-    virtual Execution *onCreate(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs,
-                                const MNN::Op *op, Backend *backend) const override {
-        auto param = op->main_as_MatMul();
-        return new MatMulBufExecution(inputs, op, backend, param->transposeA(), param->transposeB());
-    }
-};
 
-OpenCLCreatorRegister<MatMulBufCreator> __matmulBuf_op(OpType_MatMul, BUFFER);
+
+
+#endif // CUSTOM_KERNEL
+
+        class MatMulBufCreator : public OpenCLBackend::Creator {
+        public:
+            virtual Execution *onCreate(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs,
+                                        const MNN::Op *op, Backend *backend) const override {
+                auto param = op->main_as_MatMul();
+                return new MatMulBufExecution(inputs, op, backend, param->transposeA(), param->transposeB());
+            }
+        };
+
+        OpenCLCreatorRegister<MatMulBufCreator> __matmulBuf_op(OpType_MatMul, BUFFER);
 
 } // namespace OpenCL
 } // namespace MNN

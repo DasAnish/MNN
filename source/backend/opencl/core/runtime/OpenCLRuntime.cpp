@@ -184,6 +184,7 @@ void OpenCLRuntime::setGpuMode(const int cl_mode_num) {
     int totalSet = 0;
     bool isSet = (cl_mode_num & MNN_GPU_MEMORY_BUFFER);
     if(isSet) {
+//        MNN_PRINT("BUFFER");
         mMemType = BUFFER;
         totalSet++;
     }

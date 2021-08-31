@@ -22,6 +22,10 @@ __kernel void matmul_buf(GLOBAL_SIZE_2_DIMS __global const FLOAT* input_a,
     const int width_blocks_idx = get_global_id(0);// output W
     const int height_idx       = get_global_id(1);// output H
 
+    if (width_blocks_idx == 0 && height_idx == 0){
+        printf("matmul: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, width_blocks);
+    }
+
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_idx);
     FLOAT4 a;
     FLOAT4 b0 = 0, b1 = 0, b2 = 0, b3 = 0;
@@ -93,6 +97,10 @@ __kernel void matmul_transB_buf(GLOBAL_SIZE_2_DIMS __global const FLOAT* input_a
     FLOAT4 a;
     FLOAT4 b0 = 0, b1 = 0, b2 = 0, b3 = 0;
 
+if (width_blocks_idx == 0 && height_idx == 0){
+printf("matmulb: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, width_blocks);
+}
+
     #ifdef BIAS
     FLOAT4 temp = vload4(width_blocks_idx, input_c);
     FLOAT result0 = temp.x;
@@ -154,6 +162,10 @@ __kernel void matmul_transA_buf(GLOBAL_SIZE_2_DIMS __global const FLOAT* input_a
     const int height_blocks_idx = get_global_id(1);
 
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_blocks_idx);
+
+if (width_blocks_idx == 0 && height_blocks_idx == 0){
+printf("matmulb: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, width_blocks);
+}
 
     FLOAT4 v_zero = (FLOAT4)((FLOAT)0.0);
     #ifdef BIAS
@@ -244,6 +256,10 @@ __kernel void matmul_transA_transB_buf(GLOBAL_SIZE_2_DIMS __global const FLOAT* 
     const int height_blocks_idx = get_global_id(1);
 
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_blocks_idx);
+
+if (width_blocks_idx == 0 && height_blocks_idx == 0){
+printf("matmulAB: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, width_blocks);
+}
 
     FLOAT4 v_zero = (FLOAT4)((FLOAT)0.0);
     #ifdef BIAS

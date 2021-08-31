@@ -21,6 +21,10 @@ __kernel void gemm_buf(GLOBAL_SIZE_DIM2
     int2 pos = (int2)(get_global_id(0), get_global_id(1));
     UNIFORM_BOUNDRY_CHECK(pos.x, pos.y);
 
+if (pos.x == 0 && pos.y == 0){
+printf("gemm1: width: %d | heigth: %d | srcChannelC4: %d | alpha2: %d\n", width, height, srcChannelC4, alpha2);
+}
+
     const int pos_x = pos.x % width;
     const int pos_y = pos.x / width;
     const int pos_z = pos.y;
@@ -74,6 +78,10 @@ __kernel void gemm_buf2(GLOBAL_SIZE_DIM2
                         __private const int alpha2) {
     int2 pos = (int2)(get_global_id(0), get_global_id(1));
     UNIFORM_BOUNDRY_CHECK(pos.x, pos.y);
+
+if (pos.x == 0 && pos.y == 0){
+printf("gemm1: width: %d | heigth: %d | srcChannelC4: %d | alpha2: %d\n", width, height, srcChannelC4, alpha2);
+}
 
     const int width_block = (width+1) >> 1;
     const int pos_x = (pos.x % width_block) << 1;

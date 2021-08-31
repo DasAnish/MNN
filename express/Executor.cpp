@@ -15,6 +15,7 @@
 #include "core/OpCommonUtils.hpp"
 #include "geometry/GeometryComputerUtils.hpp"
 #include <MNN/expr/ExecutorScope.hpp>
+//#include "backend/opencl/core/runtime/OpenCLRuntime.hpp"
 #ifdef MNN_EXPR_ENABLE_PROFILER
 #define MNN_EXPRESS_ERROR_REPORT
 #endif
@@ -79,9 +80,15 @@ void Executor::setGlobalExecutorConfig(MNNForwardType type, const BackendConfig&
     Backend::Info info;
     info.type = type;
     info.mode = Backend::Info::DIRECT;
-    info.numThread = numberThread;
+    if (type == MNN_FORWARD_CPU)
+        info.numThread = numberThread;
+    else
+        info.gpuMode = MNN_GPU_TUNING_WIDE | MNN_GPU_MEMORY_IMAGE;
+//    MNN_PRINT("info: %d, %d, %d", info.gpuMode, info.numThread, info.type == MNN_FORWARD_OPENCL);
+
     info.user = (BackendConfig*)&config;
     std::shared_ptr<Runtime> bn(creator->onCreate(info));
+
     mRuntime.first = bn;
     mRuntime.second = type;
 }

@@ -22,6 +22,11 @@ __kernel void matmul(GLOBAL_SIZE_2_DIMS __read_only image2d_t input_a,
     const int width_blocks_idx = get_global_id(0);
     const int height_idx       = get_global_id(1);
 
+    if (width_blocks_idx == 0 && height_idx == 0){
+        printf("matmul: channels: %d | channel_blocks: %d | width_blocks:\n", channels, channel_blocks);
+    }
+
+
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_idx);
     FLOAT4 a;
     FLOAT4 b0 = 0, b1 = 0, b2 = 0, b3 = 0;
@@ -83,6 +88,11 @@ __kernel void matmul_transB(GLOBAL_SIZE_2_DIMS __read_only image2d_t input_a,
     const int width_blocks_idx = get_global_id(0);
     const int height_idx       = get_global_id(1);
 
+    if (width_blocks_idx == 0 && height_idx == 0){
+        printf("matmulB: channels: %d | channel_blocks: %d \n", channels, channel_blocks);
+    }
+
+
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_idx);
     FLOAT4 a;
     FLOAT4 b0 = 0, b1 = 0, b2 = 0, b3 = 0;
@@ -140,7 +150,12 @@ __kernel void matmul_transB(GLOBAL_SIZE_2_DIMS __read_only image2d_t input_a,
     const int width_blocks_idx = get_global_id(0);
     const int height_blocks_idx = get_global_id(1);
 
-    DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_blocks_idx);
+        if (width_blocks_idx == 0 && height_blocks_idx == 0){
+            printf("matmulA: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, height);
+        }
+
+
+        DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_blocks_idx);
 
     FLOAT4 v_zero = (FLOAT4)((FLOAT)0.0);
     #ifdef BIAS
@@ -223,6 +238,11 @@ __kernel void matmul_transA_transB(GLOBAL_SIZE_2_DIMS __read_only image2d_t inpu
                       __private const int height) {
     const int width_blocks_idx = get_global_id(0);
     const int height_blocks_idx = get_global_id(1);
+
+    if (width_blocks_idx == 0 && height_blocks_idx == 0){
+        printf("matmulAB: channels: %d | channel_blocks: %d | width_blocks: %d\n", channels, channel_blocks, height);
+    }
+
 
     DEAL_NON_UNIFORM_DIM2(width_blocks_idx, height_blocks_idx);
 

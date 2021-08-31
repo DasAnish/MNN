@@ -20,6 +20,8 @@ MatMulExecution::MatMulExecution(const std::vector<Tensor *> &inputs, const MNN:
 ErrorCode MatMulExecution::onResize(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
     auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
+    MNN_PRINT("HERE");
+
     Tensor *input0 = inputs[0];
     Tensor *input1 = inputs[1];
     Tensor *output = outputs[0];
@@ -95,6 +97,7 @@ ErrorCode MatMulExecution::onResize(const std::vector<Tensor *> &inputs, const s
 }
 
 ErrorCode MatMulExecution::onExecute(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
+    MNN_PRINT("in Matmul IMAGE");
 
 #ifdef LOG_VERBOSE
     MNN_PRINT("Start MatMulExecution onExecute... \n");
