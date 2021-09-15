@@ -4,6 +4,19 @@
 
 [MNN Homepage](http://www.mnn.zone)
 
+
+## How to set up and run using Android-studio
+You can fork from this repository and start working on the androidv2 (`MNN/project/androidv2`) or you can fork from alibaba/MNN and then create your own project in `MNN/project`. This guide will aim to cover how to start your own project from scratch i.e. after you have forked the alibaba/MNN repo.
+
+1. Create a new project using android studios in the `MNN/project` directory and select the C++ native project template. 
+2. Copy the `build.gradle` file from `androidv2/build.gradle` and `androidv2/app/build.gradle` into your project. Further, you may need to edit the package names. 
+3. Follow this guide to [install_ndk_and_cmake_automatically](https://developer.android.com/studio/projects/install-ndk#install_ndk_and_cmake_automatically). Accordingly you need to update the ndkVersion within the gradle files. 
+4. Copy the file `MNN/CMakeLists.txt` from this repo into your project and under the \#JNI section replace "androidv2" for \[your-project-name\]
+5. Sync, Build and Run the project to make sure a simple "Hello World" project works.  
+
+**Some advice**: I have found that putting `Executor::getGlobalExecutor();` as the first line in your top-most function will make sure there isn't a segmentation fault. 
+
+
 ## Intro
 MNN is a highly efficient and lightweight deep learning framework. It supports inference and training of deep learning models, and has industry leading performance for inference and training on-device. At present, MNN has been integrated in more than 20 apps of Alibaba Inc, such as Taobao, Tmall, Youku, Dingtalk, Xianyu and etc., covering more than 70 usage scenarios such as live broadcast, short video capture, search recommendation, product searching by image, interactive marketing, equity distribution, security risk control. In addition, MNN is also used on embedded devices, such as IoT.
 
