@@ -8,9 +8,9 @@ __kernel void gemm(__read_only image2d_t uInput, __read_only image2d_t uKernel, 
     
     int2 pos = (int2)(get_global_id(0), get_global_id(1));
 
-    if (pos.x == 0 && pos.y == 0){
-        printf("gemm1: width: %d | heigth: %d | srcChannelC4: %d | alpha2: %d\n", width, height, srcChannelC4, alpha2);
-    }
+//    if (pos.x == 0 && pos.y == 0){
+//        printf("gemm1: width: %d | heigth: %d | srcChannelC4: %d | alpha2: %d\n", width, height, srcChannelC4, alpha2);
+//    }
     if (pos.x < width*height && pos.y < alpha2) {
         
         const int pos_x = pos.x % width;

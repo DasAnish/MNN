@@ -1,5 +1,5 @@
-//#define FCLAYER
-#define KERNEL_TRICKS
+#define FCLAYER
+//#define KERNEL_TRICKS
 
 #ifdef FCLAYER
 #include <jni.h>
@@ -55,6 +55,9 @@ static void printVarFloat(VARP x) {
     MNN_PRINT("\n");
 }
 
+class Linear {
+
+};
 
 class SimpleFC : public Module  {
 public:
@@ -66,41 +69,34 @@ public:
 
     SimpleFC() {
 
-        fc1.reset(NN::Linear(800, 32));
-        fc2.reset(NN::Linear(32, 32));
-        fc3.reset(NN::Linear(32, 32));
+        fc1.reset(NN::Linear(28*28, 16));
+        fc2.reset(NN::Linear(16, 16));
+        fc3.reset(NN::Linear(16, 16));
 
         registerModel({fc1, fc2, fc3});
     }
 
     std::vector<Express::VARP> onForward(const std::vector<Express::VARP>& inputs) {
         VARP x = inputs[0];
-        x = _Reshape(x, {0, -1});
-        x = _Convert(x, NCHW);
-        MNN_PRINT("(%d, %d, %d, %d)", x->getInfo()->dim[0], x->getInfo()->dim[1],
-                  x->getInfo()->dim[2], x->getInfo()->dim[3]);
-        const int padding_data[] = {0, 0, 0, 16};
-        auto padding = _Const(padding_data, {4}, NCHW, halide_type_of<int>());
-        x = _Pad(x, padding, CONSTANT);
-        MNN_PRINT("%d", x->getInfo()->size);
-        MNN_PRINT("(%d, %d, %d, %d)", x->getInfo()->dim[0], x->getInfo()->dim[1],
-                  x->getInfo()->dim[2], x->getInfo()->dim[3]);
-//        printVarFloat(x);
-//        MNN_PRINT("RESHAPED");
-//        MNN_PRINT("%d", x->getInfo()->dim[1]);
+//        MNN_PRINT("HERE-simpleFC");
+//        x = _Reshape(x, {0, -1});
+//        x = _Convert(x, NCHW);
+//        MNN_PRINT("x.shape: (%d, %d, %d, %d)",
+//                  x->getInfo()->dim[0], x->getInfo()->dim[1],
+//                  x->getInfo()->dim[2], x->getInfo()->dim[3]);
         x = fc1->forward(x);
-        MNN_PRINT("HERE-simpleFC");
-        x = _Relu(x);
-        x = fc2->forward(x);
-        x = _Relu(x);
-        x = fc3->onForward({x})[0];
-        x = _Softmax(x, 1);
+//        x = _Relu(x);
+//        x = fc2->forward(x);
+//        x = _Relu(x);
+//        x = fc3->forward(x);
+//        x = _Softmax(x, 1);
 
         return {x};
     }
 
 };
 
+#define RUN_ON_CPU
 
 void nn_run() {
     MNN_PRINT("STARTING");
@@ -109,52 +105,17 @@ void nn_run() {
     std::string root = "/data/local/tmp/mnist";
     RandomGenerator::generator(17);
 
-    std::shared_ptr<Module> model(new SimpleFC);
+    auto fc = new SimpleFC;
+    std::shared_ptr<Module> model1(fc);
+    MnistUtils::train(model1, root, MNN_FORWARD_CPU);
 
-
-    const int tensorData[] = {1, 2, 3, 4, 5, 6};
-    const int padData[]  = {0, 2, 0, 1, 0, 0, 0, 0};
-
-    const int expectedData[] = {2, 1, 1, 2, 3, 3, 2, 2, 1, 1, 2, 3, 3, 2, 5, 4, 4, 5, 6, 6, 5, 5, 4, 4, 5, 6, 6, 5};
-
-    auto tensor = _Const(tensorData, {2, 1, 1, 3}, NCHW, halide_type_of<int>());
-//    MNN_PRINT("HERE0");
-    auto pad    = _Const(padData, {4, 2}, NCHW, halide_type_of<int>());
-//    MNN_PRINT("HERE1");
-    auto result = _Pad(tensor, pad, CONSTANT);
-//    MNN_PRINT("HERE2");
-//    const auto resultData = result->template readMap<int>();
-//    MNN_PRINT("HERE2");
-//    const int size        = result->getInfo()->size;
-
-    MNN_PRINT("(%d, %d, %d, %d)", result->getInfo()->dim[0], result->getInfo()->dim[1],
-                                result->getInfo()->dim[2], result->getInfo()->dim[3]);
-    printVar(result);
-
-    MNN_PRINT("_______________________________________________________");
-
-    auto input = _Input({1, 2, 2, 1}, NCHW);
-    input->setName("input_tensor");
-    // set input data
-    const float inpudata[] = {-1.0, -2.0, 3.0, 4.0};
-    auto inputPtr          = input->writeMap<float>();
-    memcpy(inputPtr, inpudata, 4 * sizeof(float));
-    input->unMap();
-    const int paddings_data[]               = {0, 0, 1, 1, 1, 1, 0, 0};
-    input = _Const(inpudata, {1, 2, 2, 1}, NHWC, halide_type_of<float>());
-    printVarFloat(input);
-    auto paddings                           = _Const(paddings_data, {4, 2}, NCHW, halide_type_of<int>());
-    auto output                             = _Pad(input, paddings);
-    const std::vector<float> expectedOutput = {0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0, 0.0,
-                                               0.0, 3.0, 4.0, 0.0, 0.0, 0.0,  0.0,  0.0};
-    auto gotOutput                          = output->readMap<float>();
-
-    MNN_PRINT("(%d, %d, %d, %d)", output->getInfo()->dim[0], output->getInfo()->dim[1],
-              output->getInfo()->dim[2], output->getInfo()->dim[3]);
-    printVarFloat(output);
-
-
-    MnistUtils::train(model, root, MNN_FORWARD_OPENCL);
+    std::shared_ptr<Module> model2(new SimpleFC);
+    MnistUtils::train(model2, root, MNN_FORWARD_OPENCL);
+//#ifdef RUN_ON_CPU
+//    MnistUtils::train(model, root, MNN_FORWARD_CPU);
+//#else
+//    MnistUtils::train(model, root, MNN_FORWARD_OPENCL);
+//#endif
 
 
     MNN_PRINT("DONE");
@@ -205,7 +166,7 @@ using namespace MNN::Express;
 using namespace MNN::OpenCL;
 
 
-double cpu(int width = 32) {
+double cpu(int width = 16, int height=64, int common=784) {
     std::shared_ptr<Executor> executor = Executor::getGlobalExecutor();
     BackendConfig config;
     Backend::Info info;
@@ -219,15 +180,27 @@ double cpu(int width = 32) {
 
 //    int width = 8;
 
-    float hostA[width][width];
-    float hostB[width][width];
-    float hostC[width][width];
+    float hostA[height][common];
+    float hostB[common][width];
+    float hostC[height][width];
 
-    for (int i = 0; i<width; i++) {
+    for (int i = 0; i<height; i++) {
         for (int j = 0; j < width; j++) {
-            hostA[i][j] = (float) (i*width + j);
-            hostB[i][j] = (float) (i*width + j);
+//            hostA[i][j] = (float) (i*height + j);
+//            hostB[i][j] = (float) (i*width + j);
             hostC[i][j] = 0.0f;
+        }
+    }
+
+    for (int i = 0; i<height; i++) {
+        for (int j = 0; j<common; j++) {
+            hostA[i][j] = (float) (i*common +j) / 1000.f;
+        }
+    }
+
+    for (int i = 0; i < common; i++) {
+        for (int j = 0; j < width; j++) {
+            hostB[i][j] = (float) (i*width + j) / 1000.f;
         }
     }
 
@@ -273,8 +246,10 @@ double cpu(int width = 32) {
 
 
 int starting = 0;
-double gpu(int M = 32, int N = 32, int K=32) {
+double gpu(int M = 32, int N = 32, int K=32, bool useTimer=false) {
 #define KERNEL 4
+#define TransA 0
+#define TransB 0
 
 #define PROFILING
 
@@ -290,7 +265,7 @@ double gpu(int M = 32, int N = 32, int K=32) {
     uint32_t RTS = (TS3 / WPT);
 //defines for gemm4
 //#define TS4 32
-    uint32_t TS4 = 32;
+    uint32_t TS4 = 16;
 #ifdef WIDTH
 #undef WIDTH
 #endif
@@ -323,7 +298,9 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
     executor->setGlobalExecutorConfig(MNN_FORWARD_OPENCL, config, 1);
 
 //    BackendConfig config;
-    Backend::Info info;
+
+
+Backend::Info info;
     info.type = MNN_FORWARD_OPENCL;
     info.mode = Backend::Info::DIRECT;
 //    info.numThread = 1;
@@ -379,9 +356,9 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
         numTiles++;
 
 //    int adjustedM = 32, adjustedN =32, adjustedK = 32;
-    int adjustedK = numTiles * TS4;
-    int adjustedM = UP_DIV(M, TS4)*TS4;
-    int adjustedN = UP_DIV(N, TS4)*TS4;
+    int adjustedK = K;//numTiles * TS4;
+    int adjustedM = M;//UP_DIV(M, TS4)*TS4;
+    int adjustedN = N;//UP_DIV(N, TS4)*TS4;
 
 //    int t = K / WIDTH;
 //    if (K % WIDTH != 0)
@@ -437,15 +414,16 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
         }
     }
 #else
+
+#if !TransA && !TransB
     float hostA[adjustedM][adjustedK];
     float hostB[adjustedK][adjustedN];
     float hostC[adjustedM][adjustedN];
 
-    Timer t;
     for (int i = 0; i < adjustedM; i++) {
         for (int j = 0; j < adjustedK; j++) {
             if (i < M && j < K) {
-                hostA[i][j] = (float) 1;//(i*K + j) / 1000.f;
+                hostA[i][j] = (float) (i*K + j) / 1000.f;
             }
             else {
                 hostA[i][j] = 0.0f;
@@ -456,7 +434,7 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
     for (int i = 0; i < adjustedK; i++) {
         for (int j = 0; j < adjustedN; j++) {
             if (i < K && j < N) {
-                hostB[i][j] = (float) 1;//(i*N + j) / 1000.f;
+                hostB[i][j] = (float) (i*N + j) / 1000.f;
             }
             else {
                 hostB[i][j] = 0.0f;
@@ -470,35 +448,104 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
         }
     }
 
-    MNN_PRINT("time: %lu", t.durationInUs());
+#endif
 
-//    float hostA[adjustedK][adjustedM];
-//    float hostB[adjustedN][adjustedK];
-//    float hostC[adjustedN][adjustedM];
-//
-//    for (int i = 0; i < adjustedK; i++) {
-//        for (int j = 0; j < adjustedM; j++) {
-//            if (i < K && j < M)
-//                hostA[i][j] = (float) (j*K + i) / 1000.f;
-//            else
-//                hostA[i][j] = 0.0f;
-//        }
-//    }
-//
-//    for (int i = 0; i < adjustedN; i++) {
-//        for (int j = 0; j < adjustedK; j++) {
-//            if (i < N && j < K)
-//                hostB[i][j] = (float) (j*N + i) / 1000.f;
-//            else
-//                hostB[i][j] = 0.0f;
-//        }
-//    }
-//
-//    for (int i = 0; i < adjustedN; i++) {
-//        for (int j = 0; j < adjustedM; j++) {
-//            hostC[i][j] = 0.0f;
-//        }
-//    }
+#if TransA && TransB
+    float hostA[adjustedK][adjustedM];
+    float hostB[adjustedN][adjustedK];
+    float hostC[adjustedM][adjustedN];
+
+    for (int i = 0; i < adjustedK; i++) {
+        for (int j = 0; j < adjustedM; j++) {
+            if (i < K && j < M)
+                hostA[i][j] = (float) (j*K + i) / 1000.f;
+            else
+                hostA[i][j] = 0.0f;
+        }
+    }
+
+    for (int i = 0; i < adjustedN; i++) {
+        for (int j = 0; j < adjustedK; j++) {
+            if (i < N && j < K)
+                hostB[i][j] = (float) (j*N + i) / 1000.f;
+            else
+                hostB[i][j] = 0.0f;
+        }
+    }
+
+    for (int i = 0; i < adjustedM; i++) {
+        for (int j = 0; j < adjustedN; j++) {
+            hostC[i][j] = 0.0f;
+        }
+    }
+
+#endif
+
+#if TransA && !TransB
+
+    float hostA[adjustedK][adjustedM];
+    float hostB[adjustedK][adjustedN];
+    float hostC[adjustedM][adjustedN];
+
+    for (int i = 0; i < adjustedK; i++) {
+        for (int j = 0; j < adjustedM; j++) {
+            if (i < K && j < M)
+                hostA[i][j] = (float) (j*K + i) / 1000.f;
+            else
+                hostA[i][j] = 0.f;
+        }
+    }
+
+    for (int i = 0; i < adjustedK; i++) {
+        for (int j = 0; j < adjustedN; j++) {
+            if (i < K && j < N)
+                hostB[i][j] = (float) (i*N + j) / 1000.f;
+            else
+                hostB[i][j] = 0.f;
+        }
+    }
+
+    for (int i = 0; i < adjustedM; i++) {
+        for (int j = 0; j < adjustedN; j++) {
+            hostC[i][j] = 0.f;
+        }
+    }
+
+#endif
+
+#if !TransA && TransB
+
+    float hostA[adjustedM][adjustedK];
+    float hostB[adjustedN][adjustedK];
+    float hostC[adjustedM][adjustedN];
+
+    for (int i = 0; i < adjustedM; i++) {
+        for (int j = 0; j < adjustedK; j++) {
+            if (i < M && j < K) {
+                hostA[i][j] = (float) (i*K + j) / 1000.f;
+            }
+            else {
+                hostA[i][j] = 0.0f;
+            }
+        }
+    }
+
+    for (int i = 0; i < adjustedN; i++) {
+        for (int j = 0; j < adjustedK; j++) {
+            if (i < N && j < K)
+                hostB[i][j] = (float) (j*N + i) / 1000.f;
+            else
+                hostB[i][j] = 0.0f;
+        }
+    }
+
+    for (int i = 0; i < adjustedM; i++) {
+        for (int j = 0; j < adjustedN; j++) {
+            hostC[i][j] = 0.f;
+        }
+    }
+
+#endif
 
 //    float hostA[adjustedWidth][adjustedWidth];
 //    #if KERNEL == 5 || KERNEL == 6 || KERNEL == 7 || KERNEL == 8
@@ -580,7 +627,18 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
            << " -DKERNEL=4 ";
     buildOptions.emplace(option.str());
 
-    cl::Kernel kernel = runtime->buildKernel("myGEMM", "gemm4", buildOptions);
+    std::string kernelName;
+#if TransA && TransB
+    kernelName = "gemm4_transA_transB";
+#elif TransA
+    kernelName = "gemm4_transA";
+#elif TransB
+    kernelName = "gemm4_transB";
+#else
+    kernelName = "gemm4";
+#endif
+
+    cl::Kernel kernel = runtime->buildKernel("myGEMM", kernelName, buildOptions);
 #elif KERNEL == 5
     option << "-DTSM=" << std::to_string(TSM) << " ";
     option << "-DTSN=" << std::to_string(TSN) << " ";
@@ -756,12 +814,19 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
 //             local0 = TS4 / WIDTH,
 //             local1 = TS4;
 
-    uint32_t global0 = adjustedM,
-             global1 = adjustedN / WIDTH,
-             local0 = TS4,
-             local1 = TS4 / WIDTH;
 
-    MNN_PRINT("global0=%d, global1=%d, local0=%d, local1=%d", global0, global1, local0, local1);
+#if TransA && TransB
+    uint32_t global0 = adjustedM / WIDTH,
+             global1 = adjustedN,
+             local0 = TS4 / WIDTH,
+             local1 = TS4;
+#else
+    uint32_t global0 = adjustedM,
+             global1 = UP_DIV(adjustedN, WIDTH),
+             local0 = TS4,
+             local1 = UP_DIV(TS4, WIDTH);
+#endif
+//    MNN_PRINT("global0=%d, global1=%d, local0=%d, local1=%d", global0, global1, local0, local1);
 
     std::vector<uint32_t> global({global0, global1}), local({local0, local1});
     cl::NDRange globalRange(global0, global1), localRange(local0, local1);
@@ -913,14 +978,14 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-    MNN_PRINT("PRINTING C (%d, %d", M, N);
+    MNN_PRINT("PRINTING C (%d, %d)", M, N);
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j+=4) {
             MNN_PRINT("(%2d, %2d):\t%f, %f, %f, %f", i, j,
-                        hostC[i][j], hostC[i][j+1],
-                        hostC[i][j+2], hostC[i][j+3]);
-//                      hostC[i][j], hostC[i][j+1],
-//                      hostC[i][j+2], hostC[i][j+3]);
+//                        hostC[j][i], hostC[j+1][i],
+//                        hostC[j+2][i], hostC[i]);
+                      hostC[i][j], hostC[i][j+1],
+                      hostC[i][j+2], hostC[i][j+3]);
         }
         MNN_PRINT(" ");
     }
@@ -991,40 +1056,12 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
         for (int i = 0; i < warmup_step; i++) {
 //            commandQueue.enqueueNDRangeKernel(kernel, offsetRange, globalRange, localRange,
 //                                              nullptr, nullptr);
-//            timer.reset();
-//            for (int i = 0; i < adjustedM; i++) {
-//                for (int j = 0; j < adjustedK; j++) {
-//                    if (i < M && j < K) {
-//                        hostA[i][j] = (float) 1;//(i*K + j) / 1000.f;
-//                    }
-//                    else {
-//                        hostA[i][j] = 0.0f;
-//                    }
-//                }
-//            }
-//
-//            for (int i = 0; i < adjustedK; i++) {
-//                for (int j = 0; j < adjustedN; j++) {
-//                    if (i < K && j < N) {
-//                        hostB[i][j] = (float) 1;//(i*N + j) / 1000.f;
-//                    }
-//                    else {
-//                        hostB[i][j] = 0.0f;
-//                    }
-//                }
-//            }
-//
-//            for (int i = 0; i < adjustedM; i++) {
-//                for (int j = 0; j < adjustedN; j++) {
-//                    hostC[i][j] = 0.0f;
-//                }
-//            }
-//            avg += (double) timer.durationInUs();
 
             runKernel2D(kernel, global, local, runtime, nullptr);
         }
 
         // hot runs
+        timer.reset();
         for (int i = 0; i < hot_runs; i++) {
             cl::Event event;
 //            res = commandQueue.enqueueNDRangeKernel(kernel, offsetRange, globalRange,
@@ -1032,40 +1069,13 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
 //            MNN_CHECK_CL_SUCCESS(res, "enqueueNDRangeKernel");
 //            timer.reset();
 
-            timer.reset();
-            for (int i = 0; i < adjustedM; i++) {
-                for (int j = 0; j < adjustedK; j++) {
-                    if (i < M && j < K) {
-                        hostA[i][j] = (float) 1;//(i*K + j) / 1000.f;
-                    }
-                    else {
-                        hostA[i][j] = 0.0f;
-                    }
-                }
-            }
-
-            for (int i = 0; i < adjustedK; i++) {
-                for (int j = 0; j < adjustedN; j++) {
-                    if (i < K && j < N) {
-                        hostB[i][j] = (float) 1;//(i*N + j) / 1000.f;
-                    }
-                    else {
-                        hostB[i][j] = 0.0f;
-                    }
-                }
-            }
-
-            for (int i = 0; i < adjustedM; i++) {
-                for (int j = 0; j < adjustedN; j++) {
-                    hostC[i][j] = 0.0f;
-                }
-            }
-            avg += (double) timer.durationInUs();
-
             runKernel2D(kernel, global, local, runtime, &event);
 //            avg_time += timer.durationInUs();
             events.push_back(event);
+
         }
+        commandQueue.finish();
+        avg += timer.durationInUs();
 
         // cool down runs
         for (int i = 0; i < last_runs; i++) {
@@ -1081,16 +1091,16 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
         avg_time += runtime->getCostTime(&(events[i]));
     }
     events.clear();
-    MNN_PRINT("avg: %f", avg / (hot_runs * overall_runs));
+//    MNN_PRINT("avg: %f", avg / (hot_runs * overall_runs));
 
     avg_time /= hot_runs*overall_runs;
-//    MNN_PRINT("Avg_time: %f", avg_time);
+    avg /= hot_runs * overall_runs;
 
-//    MNN_PRINT("done: %d", width);
-
-//    delete bufferA, bufferB, bufferC;
-//    delete[][] hostA, hostB, hostC;
-    return avg_time;
+    if (!useTimer) {
+        return avg_time;
+    } else {
+        return avg;
+    }
 #endif
 }
 
@@ -1106,7 +1116,7 @@ Java_com_ad945_mnn_MainActivity_stringFromJNI(
 #ifndef PROFILING
 
     MNN_PRINT("starting");
-    gpu(16, 12, 16);
+    gpu(64, 16, 10);
 
 #else
 
@@ -1119,15 +1129,24 @@ Java_com_ad945_mnn_MainActivity_stringFromJNI(
 //    for (int pow = 5; pow <= 9; pow++) {
 //        double time = 0.0f;
 //        int i = 1 << pow;
+//    MNN_PRINT("gpu-time: %f", gpu(64, 784, 16));
+//    MNN_PRINT("cpu-time: %f", cpu());
     int start = starting/32 + 1 , offset = 15;
     for (int i = start; i<=16; i++) {
         int mat_size = i*32;
-        double time = gpu(mat_size, mat_size, mat_size);
-        MNN_PRINT("%d-> %f", mat_size, time);
-        output << std::to_string(time) << ",";
+//        double time = gpu(mat_size, mat_size, mat_size);
+//        double tcpu = cpu(mat_size, mat_size, mat_size);
+//        double tgpu = gpu(mat_size, mat_size, mat_size);
+//        double tgpu_timer = gpu(mat_size, mat_size, mat_size, true);
+        MNN_PRINT("%d -> CPU: %f\t GPU: %f\t GPU-timer: %f", mat_size,
+                  cpu(mat_size, mat_size, mat_size),
+                  gpu(mat_size, mat_size, mat_size),
+                  gpu(mat_size, mat_size, mat_size, true));
+
+//        output << std::to_string(time) << ",";
 //        if ((i - start) % 10 == 9) MNN_PRINT("%s", output.str().c_str());
     }
-//    output << "}";
+    output << "}";
 
     MNN_PRINT("%s", output.str().c_str());
 #endif

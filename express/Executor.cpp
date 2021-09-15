@@ -80,11 +80,13 @@ void Executor::setGlobalExecutorConfig(MNNForwardType type, const BackendConfig&
     Backend::Info info;
     info.type = type;
     info.mode = Backend::Info::DIRECT;
-    if (type == MNN_FORWARD_CPU)
-        info.numThread = numberThread;
-    else
-        info.gpuMode = MNN_GPU_TUNING_WIDE | MNN_GPU_MEMORY_IMAGE;
-//    MNN_PRINT("info: %d, %d, %d", info.gpuMode, info.numThread, info.type == MNN_FORWARD_OPENCL);
+    info.numThread = numberThread;
+//    MNN_PRINT("info: %d", info.type == MNN_FORWARD_OPENCL);
+    if (info.type == MNN_FORWARD_OPENCL) {
+        MNN_PRINT("**GPU**");
+    } else {
+        MNN_PRINT("**CPU**");
+    }
 
     info.user = (BackendConfig*)&config;
     std::shared_ptr<Runtime> bn(creator->onCreate(info));

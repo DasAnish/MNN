@@ -16,11 +16,12 @@ MatMulExecution::MatMulExecution(const std::vector<Tensor *> &inputs, const MNN:
                                  , mTransposeA(transposeA), mTransposeB(transposeB){
     mOpenCLBackend = static_cast<OpenCLBackend *>(backend);
     mAreadySetArg  = false;
+//    MNN_PRINT("HERE-image-constructor");
 }
 ErrorCode MatMulExecution::onResize(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
     auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
-    MNN_PRINT("HERE");
+//    MNN_PRINT("HERE-matmul-image");
 
     Tensor *input0 = inputs[0];
     Tensor *input1 = inputs[1];
@@ -97,7 +98,7 @@ ErrorCode MatMulExecution::onResize(const std::vector<Tensor *> &inputs, const s
 }
 
 ErrorCode MatMulExecution::onExecute(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
-    MNN_PRINT("in Matmul IMAGE");
+//    MNN_PRINT("in Matmul IMAGE");
 
 #ifdef LOG_VERBOSE
     MNN_PRINT("Start MatMulExecution onExecute... \n");

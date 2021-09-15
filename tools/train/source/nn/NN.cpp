@@ -1065,7 +1065,8 @@ bool NN::turnQuantize(Module* module, const int bits, NN::FeatureScaleStatMethod
     return true;
 }
 
-Module* NN::extract(std::vector<Express::VARP> inputs, std::vector<Express::VARP> outputs, bool fortrain, const std::map<std::string, SubGraph>& subGraph) {
+Module* NN::extract(std::vector<Express::VARP> inputs, std::vector<Express::VARP> outputs, bool fortrain,
+                    const std::map<std::string, SubGraph>& subGraph) {
     std::function<std::pair<std::vector<int>, std::shared_ptr<Module>>(EXPRP)> transformFunction;
     if (fortrain) {
         transformFunction =

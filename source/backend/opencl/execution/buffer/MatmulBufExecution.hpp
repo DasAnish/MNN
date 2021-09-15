@@ -37,6 +37,8 @@ private:
     OpenCLBackend *mOpenCLBackend;
     std::vector<uint32_t> mGlobalWorkSize{1, 1};
     std::vector<uint32_t> mLocalWorkSize{1, 1};
+
+//    static double timeWasted;
 };
 
 } // namespace OpenCL

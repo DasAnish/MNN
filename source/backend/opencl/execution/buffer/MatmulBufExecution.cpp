@@ -8,6 +8,7 @@
 
 #ifndef MNN_OPENCL_BUFFER_CLOSED
 
+#include <MNN/AutoTime.hpp>
 #include "backend/opencl/execution/buffer/MatmulBufExecution.hpp"
 
 namespace MNN {
@@ -18,7 +19,7 @@ namespace OpenCL {
                                            bool transposeA, bool transposeB) : Execution(backend)
                                             , mTransposeA(transposeA), mTransposeB(transposeB){
         mOpenCLBackend = static_cast<OpenCLBackend *>(backend);
-        MNN_PRINT("HERE");
+//        MNN_PRINT("creating Matmul-buffer-obj");
     }
 
 #define CUSTOM_KERNEL
@@ -30,7 +31,7 @@ namespace OpenCL {
 //#define
     ErrorCode MatMulBufExecution::onResize(const std::vector<Tensor *> &inputs,
                                            const std::vector<Tensor *> &outputs) {
-        MNN_PRINT("called matmulbuf onresize");
+//        MNN_PRINT("called matmulbuf onresize");
 
         auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
@@ -43,57 +44,93 @@ namespace OpenCL {
         std::vector<int> input1Shape = tensorShapeFormat(input1);
         std::vector<int> outputShape = tensorShapeFormat(output);
 
+        MNN::Timer t;
+
         if (mKernel.get() == nullptr) {
             std::set<std::string> buildOptions;
-            buildOptions.emplace("-DBIAS -DKERNEL=4 -DWIDTH=4 -DTS4=32");
 
-            mKernel = runtime->buildKernel("myGEMM", "gemm4", buildOptions);
+            if(mTransposeA) {
+                mKernelName = mTransposeB ? "gemm4_transA_transB":"gemm4_transA";
+            } else {
+                mKernelName = mTransposeB ? "gemm4_transB":"gemm4";
+            }
+
+            if (inputs.size() > 2) {
+                buildOptions.emplace("-DBIAS -DKERNEL=4 -DWIDTH=4 -DTS4=16");
+            } else {
+                buildOptions.emplace("-DKERNEL=4 -DWIDTH=4 -DTS4=32");
+            }
+
+            mKernel = runtime->buildKernel("myGEMM", mKernelName, buildOptions);
         }
 
-        if (inputs.size() > 2) {
-            Tensor *input2 = inputs[2];
-            std::vector<int> shape = tensorShapeFormat(input2);
-            MNN_PRINT("bias shape: %d, %d, %d, %d", shape.at(0), shape.at(1), shape.at(2), shape.at(3));
-        }
+
+//        if (inputs.size() > 2) {
+//
+//            Tensor *input2 = inputs[2];
+//            std::vector<int> shape = tensorShapeFormat(input2);
+//            MNN_PRINT("bias shape: %d, %d, %d, %d", shape.at(0), shape.at(1), shape.at(2), shape.at(3));
+//        }
 
         cl_int res = CL_SUCCESS;
 
-//        if
+        const int M = (mTransposeA) ? input0Shape.at(3) : input0Shape.at(0);
+        const int N = (mTransposeB) ? input1Shape.at(0) : input1Shape.at(3);
+        const int K = (mTransposeA) ? input0Shape.at(0) : input0Shape.at(3);
+        const int numTiles = UP_DIV(K, 16);
+
+        int idx = 0;
+        res |= mKernel.setArg(idx++, M);
+        res |= mKernel.setArg(idx++, N);
+        res |= mKernel.setArg(idx++, K);
+
+        res |= mKernel.setArg(idx++, openCLBuffer(input0));
+        res |= mKernel.setArg(idx++, openCLBuffer(input1));
+        res |= mKernel.setArg(idx++, openCLBuffer(output));
+
+        res |= mKernel.setArg(idx++, numTiles);
+
+        MNN_CHECK_CL_SUCCESS(res, "matmul_buf");
+
+        uint32_t global0 = M,
+                 global1 = N / 4,
+                 local0 = 16,
+                 local1 = 16 / 4;
+
+        mGlobalWorkSize = {global0, global1};
+        mLocalWorkSize = {local0, local1};
 
         return NO_ERROR;
     }
 
     ErrorCode MatMulBufExecution::onExecute(const std::vector<Tensor *> &inputs,
                                             const std::vector<Tensor *> &outputs) {
-        MNN_PRINT("Called matmulbuf onexecute");
+//        MNN_PRINT("DEBUG: HERE");
+#ifdef LOG_VERBOSE
+        MNN_PRINT("Start MatMulBufExecution onExecute... \n");
+#endif
 
-        MNN_PRINT("mTransposeA=%d | mTransposeB=%d", mTransposeA, mTransposeB);
-        Tensor *input0 = inputs[0];
-        Tensor *input1 = inputs[1];
-        Tensor *output = outputs[0];
+        auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
-        std::vector<int> input0Shape = tensorShapeFormat(input0);
-        std::vector<int> input1Shape = tensorShapeFormat(input1);
-        std::vector<int> outputShape = tensorShapeFormat(output);
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+        cl::Event event;
+        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, &event);
+        event.wait();
 
-        MNN_PRINT("inputs.size %d", inputs.size());
-        if (inputs.size() > 2) {
-            Tensor *input2 = inputs[2];
-            std::vector<int> shape = tensorShapeFormat(input2);
-            MNN_PRINT("bias shape: %d, %d, %d, %d", shape.at(0), shape.at(1), shape.at(2), shape.at(3));
-        }
+        double costTime = mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
+        MNN_PRINT("kernel cost:%f    us MatmulBuf\n",costTime);
+        MNN_PRINT("KERNEL submit: %f us", mOpenCLBackend->getOpenCLRuntime()->getSubmitTime(&event));
+        MNN_PRINT("KERNEL queue: %f us", mOpenCLBackend->getOpenCLRuntime()->getQueuedTime(&event));
+#else
+        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, nullptr);
+#endif
 
-        MNN_PRINT("inputShape0: %d, %d, %d, %d", input0Shape.at(0), input0Shape.at(1),
-                                                 input0Shape.at(2), input0Shape.at(3));
-        MNN_PRINT("inputShape1: %d, %d, %d, %d", input1Shape.at(0), input1Shape.at(1),
-                                                 input1Shape.at(2), input1Shape.at(3));
-        MNN_PRINT("outputShape: %d, %d, %d, %d", outputShape.at(0), outputShape.at(1),
-                                                 outputShape.at(2), outputShape.at(3));
-
-//        throw -1;
-
+#ifdef LOG_VERBOSE
+        MNN_PRINT("End MatMulBufExecution onExecute... \n");
+#endif
         return NO_ERROR;
     }
+
 
 
 #else

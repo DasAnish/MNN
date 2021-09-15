@@ -1,4 +1,4 @@
-set -e
+./set -e
 ABI="armeabi-v7a"
 OPENMP="ON"
 VULKAN="ON"
@@ -71,17 +71,18 @@ function bench_android() {
         adb shell "rm -rf $ANDROID_DIR/benchmark_models"
         adb push $BENCHMARK_MODEL_DIR $ANDROID_DIR/benchmark_models
     fi
-    adb shell "cat /proc/cpuinfo > $ANDROID_DIR/benchmark.txt"
+#    adb shell "cat /proc/cpuinfo > $ANDROID_DIR/benchmark.txt"
     adb shell "echo >> $ANDROID_DIR/benchmark.txt"
+    adb pull $ANDROID_DIR/benchmark.txt ../
     adb shell "echo Build Flags: ABI=$ABI  OpenMP=$OPENMP Vulkan=$VULKAN OpenCL=$OPENCL >> $ANDROID_DIR/benchmark.txt"
     #benchmark  CPU
     adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models $RUN_LOOP 5 $FORWARD_TYPE 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
     #benchmark  Vulkan
-    adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models $RUN_LOOP 5 7 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
+#    adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models $RUN_LOOP 5 7 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
     #benchmark OpenGL
     #adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models $RUN_LOOP 5 6 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
     #benchmark OpenCL
-    #adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models 100 20 3 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
+    #adb shell "LD_LIBRARY_PATH=$ANDROID_DIR $ANDROID_DIR/benchmark.out $ANDROID_DIR/benchmark_models $RUN_LOOP 5 3 4 2>$ANDROID_DIR/benchmark.err >> $ANDROID_DIR/benchmark.txt"
     adb pull $ANDROID_DIR/benchmark.txt ../
 }
 

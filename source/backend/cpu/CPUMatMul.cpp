@@ -22,6 +22,7 @@ namespace MNN {
 CPUMatMul::CPUMatMul(Backend* backend, bool transposeA, bool transposeB, bool transposeC, bool multiThread)
     : Execution(backend), mTransposeA(transposeA), mTransposeB(transposeB), mTransposeC(transposeC), mSupportMultiThread(multiThread) {
     mComputer.reset(new StrassenMatrixComputor(backend, mSupportMultiThread, 5));
+//    MNN_PRINT("CPUMATMUL-constructor");
 }
 
 void CPUMatMul::_scheduleForVecE(int e, int l, int h) {
