@@ -67,11 +67,12 @@ public:
 
 public:
 
-    SimpleFC() {
+    SimpleFC(int size) {
 
-        fc1.reset(NN::Linear(28*28, 16));
-        fc2.reset(NN::Linear(16, 16));
-        fc3.reset(NN::Linear(16, 16));
+//        int size = 128;
+        fc1.reset(NN::Linear(size, size));
+        fc2.reset(NN::Linear(size, size));
+        fc3.reset(NN::Linear(size, size));
 
         registerModel({fc1, fc2, fc3});
     }
@@ -85,11 +86,11 @@ public:
 //                  x->getInfo()->dim[0], x->getInfo()->dim[1],
 //                  x->getInfo()->dim[2], x->getInfo()->dim[3]);
         x = fc1->forward(x);
-//        x = _Relu(x);
-//        x = fc2->forward(x);
-//        x = _Relu(x);
-//        x = fc3->forward(x);
-//        x = _Softmax(x, 1);
+        x = _Relu(x);
+        x = fc2->forward(x);
+        x = _Relu(x);
+        x = fc3->forward(x);
+        x = _Softmax(x, 1);
 
         return {x};
     }
@@ -105,11 +106,19 @@ void nn_run() {
     std::string root = "/data/local/tmp/mnist";
     RandomGenerator::generator(17);
 
-    auto fc = new SimpleFC;
+//    for (int size = 4; size < 10; size++) {
+//        int Size = 1 << size;
+//        std::shared_ptr<Module> model1(new SimpleFC(Size));
+//        MnistUtils::train(model1, root, MNN_FORWARD_CPU, Size, Size);
+//        std::shared_ptr<Module> model2(new SimpleFC(Size));
+//        MnistUtils::train(model2, root, MNN_FORWARD_OPENCL, Size, Size);
+//    }
+    int size = 16;
+    auto fc = new SimpleFC(size);
     std::shared_ptr<Module> model1(fc);
     MnistUtils::train(model1, root, MNN_FORWARD_CPU);
 
-    std::shared_ptr<Module> model2(new SimpleFC);
+    std::shared_ptr<Module> model2(new SimpleFC(size));
     MnistUtils::train(model2, root, MNN_FORWARD_OPENCL);
 //#ifdef RUN_ON_CPU
 //    MnistUtils::train(model, root, MNN_FORWARD_CPU);
@@ -146,6 +155,7 @@ Java_com_ad945_mnn_MainActivity_stringFromJNI(
 //General
 #include "MNN/Tensor.hpp"
 #include "MNN_generated.h"
+#include "train/source/nn/Initializer.hpp"
 
 //opencl resources
 #include "backend/opencl/core/OpenCLBackend.hpp"
@@ -221,7 +231,7 @@ double cpu(int width = 16, int height=64, int common=784) {
 //    MNN_CHECK_CL_SUCCESS(code, "matmul.onResize");
 //
 
-    int warmup = 10, hot_run = 50, overall = 2;
+    int warmup = 10, hot_run = 50, overall = 10;
     double avg_time = 0.f;
     for (int k = 0; k < overall; k++) {
         for (int i = 0; i < warmup; i++) {
@@ -300,7 +310,7 @@ uint32_t LPT  = ((TSK*TSM)/(RTSM*RTSN)); // The loads-per-thread for a tile
 //    BackendConfig config;
 
 
-Backend::Info info;
+    Backend::Info info;
     info.type = MNN_FORWARD_OPENCL;
     info.mode = Backend::Info::DIRECT;
 //    info.numThread = 1;
@@ -378,7 +388,7 @@ Backend::Info info;
 
 #endif
 #if KERNEL == 6 || KERNEL == 5 || KERNEL == 7 || KERNEL == 8
-//    while (width < TSM/2) {
+    //    while (width < TSM/2) {
 //        TSM /= 2;
 //        TSN = TSM;
 //    }
@@ -737,11 +747,8 @@ Backend::Info info;
 #endif
 
     res |= kernel.setArg(idx++, bufferA);
-    res |= kernel.setArg(idx++, bufferB);//openCLBuffer(tensorB));
-    res |= kernel.setArg(idx++, bufferC);//openCLBuffer(tensorC));
-//    res |= kernel.setArg(idx++, M);
-//    res |= kernel.setArg(idx++, N);
-//    res |= kernel.setArg(idx++, K);
+    res |= kernel.setArg(idx++, bufferB);
+    res |= kernel.setArg(idx++, bufferC);
     res |= kernel.setArg(idx++, numTiles);
 
 //#if KERNEL == 2
@@ -822,9 +829,9 @@ Backend::Info info;
              local1 = TS4;
 #else
     uint32_t global0 = adjustedM,
-             global1 = UP_DIV(adjustedN, WIDTH),
-             local0 = TS4,
-             local1 = UP_DIV(TS4, WIDTH);
+            global1 = UP_DIV(adjustedN, WIDTH),
+            local0 = TS4,
+            local1 = UP_DIV(TS4, WIDTH);
 #endif
 //    MNN_PRINT("global0=%d, global1=%d, local0=%d, local1=%d", global0, global1, local0, local1);
 
@@ -1032,12 +1039,12 @@ Backend::Info info;
     double avg = 0.0f;
     Timer timer;
 
-    int warmup_step = 10, hot_runs = 50, last_runs = 5, overall_runs = 2;
+    int warmup_step = 10, hot_runs = 50, last_runs = 5, overall = 10;
     int total_runs = warmup_step + hot_runs + last_runs;
     std::vector<cl::Event> events;
 
 
-    for (int k = 0; k < overall_runs; k++) {
+    for (int k = 0; k < overall; k++) {
 
 //        for (int i = 0; i < total_runs; i++) {
 //            if (i>=hot_runs && i < warmup_step + hot_runs) {
@@ -1069,6 +1076,19 @@ Backend::Info info;
 //            MNN_CHECK_CL_SUCCESS(res, "enqueueNDRangeKernel");
 //            timer.reset();
 
+            if (useTimer) {
+                idx = 0;
+                res |= kernel.setArg(idx++, adjustedM); // M
+                res |= kernel.setArg(idx++, adjustedN); // N
+                res |= kernel.setArg(idx++, adjustedK); // K
+
+                res |= kernel.setArg(idx++, bufferA);
+                res |= kernel.setArg(idx++, bufferB);
+                res |= kernel.setArg(idx++, bufferC);
+                res |= kernel.setArg(idx++, numTiles);
+            }
+
+
             runKernel2D(kernel, global, local, runtime, &event);
 //            avg_time += timer.durationInUs();
             events.push_back(event);
@@ -1086,15 +1106,15 @@ Backend::Info info;
         commandQueue.finish();
     }
 
-    for (int i = 0; i < hot_runs*overall_runs; i++) {
+    for (int i = 0; i < hot_runs*overall; i++) {
 //        if (&events[i]!=nullptr)
         avg_time += runtime->getCostTime(&(events[i]));
     }
     events.clear();
-//    MNN_PRINT("avg: %f", avg / (hot_runs * overall_runs));
+//    MNN_PRINT("avg: %f", avg / (hot_runs * overall));
 
-    avg_time /= hot_runs*overall_runs;
-    avg /= hot_runs * overall_runs;
+    avg_time /= hot_runs*overall;
+    avg /= hot_runs * overall;
 
     if (!useTimer) {
         return avg_time;
@@ -1103,7 +1123,6 @@ Backend::Info info;
     }
 #endif
 }
-
 
 
 
@@ -1131,13 +1150,14 @@ Java_com_ad945_mnn_MainActivity_stringFromJNI(
 //        int i = 1 << pow;
 //    MNN_PRINT("gpu-time: %f", gpu(64, 784, 16));
 //    MNN_PRINT("cpu-time: %f", cpu());
-    int start = starting/32 + 1 , offset = 15;
+    int start = 1 , offset = 31;
     for (int i = start; i<=16; i++) {
-        int mat_size = i*32;
+        int mat_size = i*16;
 //        double time = gpu(mat_size, mat_size, mat_size);
 //        double tcpu = cpu(mat_size, mat_size, mat_size);
 //        double tgpu = gpu(mat_size, mat_size, mat_size);
 //        double tgpu_timer = gpu(mat_size, mat_size, mat_size, true);
+
         MNN_PRINT("%d -> CPU: %f\t GPU: %f\t GPU-timer: %f", mat_size,
                   cpu(mat_size, mat_size, mat_size),
                   gpu(mat_size, mat_size, mat_size),

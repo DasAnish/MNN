@@ -22,12 +22,12 @@ namespace OpenCL {
 //        MNN_PRINT("creating Matmul-buffer-obj");
     }
 
-#define CUSTOM_KERNEL
+//#define CUSTOM_KERNEL
 
 #ifdef CUSTOM_KERNEL
 
 #define WIDTH 4
-#define TS 32
+#define TS 16
 //#define
     ErrorCode MatMulBufExecution::onResize(const std::vector<Tensor *> &inputs,
                                            const std::vector<Tensor *> &outputs) {
@@ -50,9 +50,9 @@ namespace OpenCL {
             std::set<std::string> buildOptions;
 
             if(mTransposeA) {
-                mKernelName = mTransposeB ? "gemm4_transA_transB":"gemm4_transA";
+                mKernelName = mTransposeB ? "gemm4_transA_transB_char":"gemm4_transA_char";
             } else {
-                mKernelName = mTransposeB ? "gemm4_transB":"gemm4";
+                mKernelName = mTransposeB ? "gemm4_transB_char":"gemm4_char";
             }
 
             if (inputs.size() > 2) {
@@ -122,7 +122,9 @@ namespace OpenCL {
         MNN_PRINT("KERNEL submit: %f us", mOpenCLBackend->getOpenCLRuntime()->getSubmitTime(&event));
         MNN_PRINT("KERNEL queue: %f us", mOpenCLBackend->getOpenCLRuntime()->getQueuedTime(&event));
 #else
-        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, nullptr);
+        cl::Event event;
+        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, &event);
+//        event.wait();
 #endif
 
 #ifdef LOG_VERBOSE

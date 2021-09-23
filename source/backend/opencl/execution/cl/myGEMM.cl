@@ -178,6 +178,419 @@ __kernel void gemm3(const int M, const int N, const int K,
 #define TS4 16
 
 #if WIDTH == 1
+#define charX char
+#elif WIDTH == 2
+#define charX char2
+#elif WIDTH == 4
+#define charX char4
+#elif WIDTH == 8
+#define floatX float8
+#elif WIDTH == 16
+#define floatX float16
+#endif
+
+
+
+__kernel void gemm4_char(const int M, const int N, const int K,
+                    const __global charX* A,
+                    const __global charX* B,
+#ifdef BIAS
+                    const __global charX* bias,
+#endif
+                    __global charX* C,
+                    const int numTiles) {
+
+    // Thread identifiers
+    const int row = get_local_id(0); //max: TS4 // Local row ID (max: TS4/WIDTH)
+    const int col = get_local_id(1); //max: TS4/WIDTH // Local col ID (max: TS4)
+    const int globalRow = (TS4)*get_group_id(0) + row; // 0..M// 0..M/WIDTH
+    const int globalCol = (TS4 / WIDTH)*get_group_id(1) + col; // 0..N/WIDTH // 0..N
+
+//    if (globalRow == 0 && globalCol == 0) {
+//        printf("(%d, %d)", get_global_size(0))
+//    }
+
+    // Local memory to fit a tile of TS4*TS4 elements of A and B
+    //transed
+    __local charX Asub[TS4][TS4 / WIDTH];
+    __local charX Bsub[TS4][TS4 / WIDTH];
+
+    // Initialise the accumulation registers
+#if WIDTH == 1
+    charX acc = 0.0f;
+    charX char0 = 0.0f;
+#elif WIDTH == 2
+    charX acc = { 0.0f, 0.0f };
+    charX char0 = (char2) (0, 0);
+#elif WIDTH == 4
+    charX acc = { 0.0f, 0.0f, 0.0f, 0.0f };
+    charX char0 = (char4) (0, 0, 0, 0);
+#elif WIDTH == 8
+    charX acc = (char8) (0, 0, 0, 0, 0, 0, 0, 0);
+    charX char0 = (char8) (0, 0, 0, 0, 0, 0, 0, 0);
+#elif WIDTH == 16
+    charX acc = (char16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    charX char0 = (char16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+#endif
+
+#ifdef BIAS
+    acc = bias[globalCol];
+#endif
+
+    // Loop over all tiles
+//    const int numTiles = K/TS4;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        //transed
+        const int tiledRow = (TS4)*t + row;
+        const int tiledCol = (TS4/WIDTH)*t + col;
+//        const int Ai = tiledCol * (M/WIDTH) + globalRow;
+//        const int Bi = globalCol * (K/WIDTH) + tiledRow;
+//        if (tiledCol > K / WIDTH)
+//            Asub[col][row] = char0;
+//        else
+            Asub[row][col] = A[tiledCol + globalRow*(K/WIDTH)]; //transed
+
+//        if (tiledRow > K)
+//            Bsub[col][row] = char0;
+//        else
+            Bsub[row][col] = B[globalCol + tiledRow*(N/WIDTH)]; // transed
+
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+        // Perform the computation for a single tile
+
+        charX vecA;
+        char valB;
+        for (int k=0; k<TS4/WIDTH; k++) {
+            vecA = Asub[row][k]; // transed
+#if WIDTH == 1
+
+            char vecA = Bsub[col][k];
+            acc += vecB * vecA;
+
+#elif WIDTH == 2
+
+            char4 vecA0 = Bsub[col][WIDTH*k + 0];
+            char4 vecA1 = Bsub[col][WIDTH*k + 1];
+
+            char2 vecA0trans = (char2) (vecA0.s0, vecA1.s0);
+            char2 vecA1trans = (char2) (vecA0.s1, vecA1.s1);
+
+            acc.s0 += dot(vecA, vecA0trans);
+            acc.s1 += dot(vecA, vecA1trans);
+
+#elif WIDTH == 4
+
+            //transed
+            char4 vecB0 = Bsub[WIDTH*k + 0][col];
+            char4 vecB1 = Bsub[WIDTH*k + 1][col];
+            char4 vecB2 = Bsub[WIDTH*k + 2][col];
+            char4 vecB3 = Bsub[WIDTH*k + 3][col];
+
+            char4 vecB0trans = (char4) (vecB0.s0, vecB1.s0, vecB2.s0, vecB3.s0);
+            char4 vecB1trans = (char4) (vecB0.s1, vecB1.s1, vecB2.s1, vecB3.s1);
+            char4 vecB2trans = (char4) (vecB0.s2, vecB1.s2, vecB2.s2, vecB3.s2);
+            char4 vecB3trans = (char4) (vecB0.s3, vecB1.s3, vecB2.s3, vecB3.s3);
+
+            acc.s0 += dot(vecA, vecB0trans);
+            acc.s1 += dot(vecA, vecB1trans);
+            acc.s2 += dot(vecA, vecB2trans);
+            acc.s3 += dot(vecA, vecB3trans);
+
+
+#endif
+
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // Store the final results in C
+    int index = globalCol + globalRow * (N / WIDTH);
+    C[globalCol + globalRow*(N/WIDTH)] = acc; //transed
+}
+
+// Use wider data types
+__kernel void gemm4_transB_char(const int M, const int N, const int K,
+                    const __global charX* A,
+                    const __global charX* B,
+#ifdef BIAS
+                    const __global charX* bias,
+#endif
+                    __global charX* C,
+                    const int numTiles) {
+
+    // Thread identifiers
+    const int row = get_local_id(0); //max: TS4 // Local row ID (max: TS4/WIDTH)
+    const int col = get_local_id(1); //max: TS4/WIDTH // Local col ID (max: TS4)
+    const int globalRow = (TS4)*get_group_id(0) + row; // 0..M// 0..M/WIDTH
+    const int globalCol = (TS4 / WIDTH)*get_group_id(1) + col; // 0..N/WIDTH // 0..N
+
+    const int transRow = row / WIDTH;
+    const int transCol = col * WIDTH + row % WIDTH;
+    const int globalRow2 = TS4 * get_group_id(1) + row;
+//    const int globalTransRow = globalRow / WIDTH;
+    const int globalTransCol = globalCol * WIDTH + globalRow % WIDTH;
+
+//    if (globalRow == 0 && globalCol == 0) {
+//        printf("(%d, %d)", get_global_size(0))
+//    }
+
+
+
+    // Initialise the accumulation registers
+#if WIDTH == 1
+    charX acc = 0.0f;
+    charX char0 = 0.0f;
+#elif WIDTH == 2
+    charX acc = { 0.0f, 0.0f };
+    charX char0 = (char2) (0, 0);
+#elif WIDTH == 4
+    charX acc = { 0.0f, 0.0f, 0.0f, 0.0f };
+    charX char0 = (char4) (0, 0, 0, 0);
+#endif
+
+#ifdef BIAS
+    acc = bias[globalCol];
+#endif
+
+    // Local memory to fit a tile of TS4*TS4 elements of A and B
+    //transed
+    __local charX Asub[TS4][TS4 / WIDTH];
+    __local charX Bsub[TS4][TS4 / WIDTH];
+//    if (row > )
+
+    // Loop over all tiles
+//    const int numTiles = K/TS4;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        //transed
+        int tiledRow = (TS4)*t + row;
+        int tiledCol = (TS4/WIDTH)*t + col;
+
+            Asub[row][col] = A[tiledCol + globalRow*(K/WIDTH)]; //transed
+
+            Bsub[row][col] = B[tiledCol + globalRow2*(K/WIDTH)]; // transed
+
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+        // Perform the computation for a single tile
+
+        charX vecA;
+        char valB;
+        for (int k=0; k<TS4/WIDTH; k++) {
+            vecA = Asub[row][k]; // transed
+#if WIDTH == 1
+
+            char vecB = Bsub[k][col];
+            acc += vecB * vecA;
+
+#elif WIDTH == 2
+
+            char4 vecB0 = Bsub[k][WIDTH*col + 0];
+            char4 vecB1 = Bsub[k][WIDTH*col + 1];
+
+//            char2 vecA0trans = (char2) (vecA0.s0, vecA1.s0);
+//            char2 vecA1trans = (char2) (vecA0.s1, vecA1.s1);
+
+            acc.s0 += dot(vecA, vecA0);
+            acc.s1 += dot(vecA, vecA1);
+
+#elif WIDTH == 4
+
+            //transed
+            char4 vecB0 = Bsub[WIDTH*col + 0][k];
+            char4 vecB1 = Bsub[WIDTH*col + 1][k];
+            char4 vecB2 = Bsub[WIDTH*col + 2][k];
+            char4 vecB3 = Bsub[WIDTH*col + 3][k];
+
+//            char4 vecB0trans = (char4) (vecB0.s0, vecB1.s0, vecB2.s0, vecB3.s0);
+//            char4 vecB1trans = (char4) (vecB0.s1, vecB1.s1, vecB2.s1, vecB3.s1);
+//            char4 vecB2trans = (char4) (vecB0.s2, vecB1.s2, vecB2.s2, vecB3.s2);
+//            char4 vecB3trans = (char4) (vecB0.s3, vecB1.s3, vecB2.s3, vecB3.s3);
+
+            acc.s0 += dot(vecA, vecB0);
+            acc.s1 += dot(vecA, vecB1);
+            acc.s2 += dot(vecA, vecB2);
+            acc.s3 += dot(vecA, vecB3);
+
+
+#endif
+
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // Store the final results in C
+    int index = globalCol + globalRow * (N / WIDTH);
+//    acc = (char4)(transRow, transCol, globalTransRow, globalTransCol);
+//    acc = (char4) (row, col, transRow, transCol);
+//    acc = Bsub[col][row];
+    C[globalCol + globalRow*(N/WIDTH)] = acc; //transed
+}
+
+
+__kernel void gemm4_transA_char(const int M, const int N, const int K,
+                    const __global charX* A,
+                    const __global charX* B,
+#ifdef BIAS
+                    const __global charX* bias,
+#endif
+                    __global charX* C,
+                    const int numTiles) {
+
+    // Thread identifiers
+    const int row = get_local_id(0); //max: TS4 // Local row ID (max: TS4/WIDTH)
+    const int col = get_local_id(1); //max: TS4/WIDTH // Local col ID (max: TS4)
+    const int globalRow = (TS4)*get_group_id(0) + row; // 0..M// 0..M/WIDTH
+    const int globalCol = (TS4 / WIDTH)*get_group_id(1) + col; // 0..N/WIDTH // 0..N
+    const int globalCol2 = (TS4 / WIDTH) * get_group_id(0) + col;
+
+//    if (globalRow == 0 && globalCol == 0) {
+//        printf("(%d, %d)", get_global_size(0))
+//    }
+
+    // Local memory to fit a tile of TS4*TS4 elements of A and B
+    //transed
+    __local charX Asub[TS4][TS4/WIDTH];
+    __local charX Bsub[TS4][TS4/WIDTH];
+
+    // Initialise the accumulation registers
+#if WIDTH == 1
+    charX acc = 0.0f;
+    charX char0 = 0.0f;
+#elif WIDTH == 2
+    charX acc = { 0.0f, 0.0f };
+    charX char0 = (char2) (0, 0);
+#elif WIDTH == 4
+    charX acc = { 0.0f, 0.0f, 0.0f, 0.0f };
+    charX char0 = (char4) (0, 0, 0, 0);
+#endif
+
+#ifdef BIAS
+    acc = bias[globalCol];
+#endif
+
+    // Loop over all tiles
+//    const int numTiles = K/TS4;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        //transed
+        const int tiledRow = (TS4)*t + row;
+        const int tiledCol = (TS4/WIDTH)*t + col;
+//        const int Ai = tiledCol * (M/WIDTH) + globalRow;
+//        const int Bi = globalCol * (K/WIDTH) + tiledRow;
+//        if (tiledCol > K / WIDTH)
+//            Asub[col][row] = char0;
+//        else
+            Asub[row][col] = A[globalCol2 + tiledRow*(M/WIDTH)]; //transed
+
+//        if (tiledRow > K)
+//            Bsub[col][row] = char0;
+//        else
+            Bsub[row][col] = B[globalCol + tiledRow*(N/WIDTH)]; // transed
+
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+        // Perform the computation for a single tile
+
+        charX vecA;
+        char valB;
+        for (int k=0; k<TS4/WIDTH; k++) {
+            switch (row % WIDTH) {
+                case 0:
+                    vecA.s0 = Asub[WIDTH*k + 0][row / WIDTH].s0; // transed
+                    vecA.s1 = Asub[WIDTH*k + 1][row / WIDTH].s0;
+                    vecA.s2 = Asub[WIDTH*k + 2][row / WIDTH].s0;
+                    vecA.s3 = Asub[WIDTH*k + 3][row / WIDTH].s0;
+                    break;
+                case 1:
+                    vecA.s0 = Asub[WIDTH*k + 0][row / WIDTH].s1; // transed
+                    vecA.s1 = Asub[WIDTH*k + 1][row / WIDTH].s1;
+                    vecA.s2 = Asub[WIDTH*k + 2][row / WIDTH].s1;
+                    vecA.s3 = Asub[WIDTH*k + 3][row / WIDTH].s1;
+                    break;
+                case 2:
+                    vecA.s0 = Asub[WIDTH*k + 0][row / WIDTH].s2; // transed
+                    vecA.s1 = Asub[WIDTH*k + 1][row / WIDTH].s2;
+                    vecA.s2 = Asub[WIDTH*k + 2][row / WIDTH].s2;
+                    vecA.s3 = Asub[WIDTH*k + 3][row / WIDTH].s2;
+                    break;
+                case 3:
+                    vecA.s0 = Asub[WIDTH*k + 0][row / WIDTH].s3; // transed
+                    vecA.s1 = Asub[WIDTH*k + 1][row / WIDTH].s3;
+                    vecA.s2 = Asub[WIDTH*k + 2][row / WIDTH].s3;
+                    vecA.s3 = Asub[WIDTH*k + 3][row / WIDTH].s3;
+                    break;
+            }
+#if WIDTH == 1
+
+            char vecA = Bsub[col][k];
+            acc += vecB * vecA;
+
+#elif WIDTH == 2
+
+            char4 vecA0 = Bsub[col][WIDTH*k + 0];
+            char4 vecA1 = Bsub[col][WIDTH*k + 1];
+
+            char2 vecA0trans = (char2) (vecA0.s0, vecA1.s0);
+            char2 vecA1trans = (char2) (vecA0.s1, vecA1.s1);
+
+            acc.s0 += dot(vecA, vecA0trans);
+            acc.s1 += dot(vecA, vecA1trans);
+
+#elif WIDTH == 4
+
+            //transed
+            char4 vecB0 = Bsub[WIDTH*k + 0][col];
+            char4 vecB1 = Bsub[WIDTH*k + 1][col];
+            char4 vecB2 = Bsub[WIDTH*k + 2][col];
+            char4 vecB3 = Bsub[WIDTH*k + 3][col];
+
+            char4 vecB0trans = (char4) (vecB0.s0, vecB1.s0, vecB2.s0, vecB3.s0);
+            char4 vecB1trans = (char4) (vecB0.s1, vecB1.s1, vecB2.s1, vecB3.s1);
+            char4 vecB2trans = (char4) (vecB0.s2, vecB1.s2, vecB2.s2, vecB3.s2);
+            char4 vecB3trans = (char4) (vecB0.s3, vecB1.s3, vecB2.s3, vecB3.s3);
+
+            acc.s0 += dot(vecA, vecB0trans);
+            acc.s1 += dot(vecA, vecB1trans);
+            acc.s2 += dot(vecA, vecB2trans);
+            acc.s3 += dot(vecA, vecB3trans);
+
+
+#endif
+
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // Store the final results in C
+    int index = globalCol + globalRow * (N / WIDTH);
+//    acc = Asub[col][row];
+    C[globalCol + globalRow*(N/WIDTH)] = acc; //transed
+}
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////
+
+
+//#define WIDTH 4
+//#define TS4 16
+
+#if WIDTH == 1
 #define floatX float
 #elif WIDTH == 2
 #define floatX float2

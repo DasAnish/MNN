@@ -83,9 +83,9 @@ void Executor::setGlobalExecutorConfig(MNNForwardType type, const BackendConfig&
     info.numThread = numberThread;
 //    MNN_PRINT("info: %d", info.type == MNN_FORWARD_OPENCL);
     if (info.type == MNN_FORWARD_OPENCL) {
-        MNN_PRINT("**GPU**");
+//        MNN_PRINT("**GPU**");
     } else {
-        MNN_PRINT("**CPU**");
+//        MNN_PRINT("**CPU**");
     }
 
     info.user = (BackendConfig*)&config;

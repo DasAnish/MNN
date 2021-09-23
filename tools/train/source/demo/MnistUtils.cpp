@@ -63,7 +63,7 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwa
 
     auto dataset = MnistDataset::create(root, MnistDataset::Mode::TRAIN);
     // the stack transform, stack [1, 28, 28] to [n, 1, 28, 28]
-    const size_t batchSize  = 1 << 9;
+    const size_t batchSize  = 1 << 4;
     const size_t numWorkers = 0;
     bool shuffle            = false;
 
@@ -79,6 +79,7 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwa
     auto testDataLoader = std::shared_ptr<DataLoader>(testDataset.createLoader(testBatchSize, true, shuffle, testNumWorkers));
 
     size_t testIterations = testDataLoader->iterNumber();
+    auto weightInit = Initializer::xavier();
 
 //    auto trainData  = dataLoader->next();
 //    auto example    = trainData[0];
@@ -86,13 +87,13 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwa
 //    cast = _Reshape(cast, {0, -1});
 //    cast = _Convert(cast, NCHW);
 //    example.first[0] = cast * _Const(1.0f / 255.0f);
-
-    // Compute One-Hot
+//
+//     Compute One-Hot
 //                MNN_PRINT("HERE1");
 //    auto newTarget = _OneHot(_Cast<int32_t>(example.second[0]),
 //                             _Scalar<int>(16), _Scalar<float>(1.0f),
 //                             _Scalar<float>(0.0f));
-
+//
 //    int t = 28*28, l = 16;
 //    auto weightInit = Initializer::xavier();
 //    auto _weight = weightInit->createConstVar({t, l}, NCHW);
@@ -207,10 +208,15 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwa
                 // AUTOTIME;
                 auto trainData  = dataLoader->next();
                 auto example    = trainData[0];
-                auto cast       = _Cast<float>(example.first[0]);
-                cast = _Reshape(cast, {0, -1});
-                cast = _Convert(cast, NCHW);
-                example.first[0] = cast * _Const(1.0f / 255.0f);
+//                auto cast       = _Cast<float>(example.first[0]);
+//                cast = _Reshape(cast, {0, -1});
+//                cast = _Convert(cast, NCHW);
+//                example.first[0] = cast * _Const(1.0f / 255.0f);
+
+                int batch = example.first[0]->getInfo()->dim[0];
+                int inputSize = 16;
+                example.first[0] = weightInit->createConstVar({batch, inputSize});
+
 //                auto input = example.first[0]->readMap<float>();
 //                float* input_ptr = (float*) input;
 //                void* host = layer1_tensor->map(Tensor::MAP_TENSOR_WRITE, Tensor::CAFFE);
@@ -235,8 +241,10 @@ void MnistUtils::train(std::shared_ptr<Module> model, std::string root, MNNForwa
 
                 // Compute One-Hot
 //                MNN_PRINT("HERE1");
-                auto newTarget = _OneHot(_Cast<int32_t>(example.second[0]),_Scalar<int>(16),
-                        _Scalar<float>(1.0f),_Scalar<float>(0.0f));
+                auto newTarget = _OneHot(_Cast<int32_t>(example.second[0]),
+                        _Scalar<int>(inputSize),
+                        _Scalar<float>(1.0f),
+                                _Scalar<float>(0.0f));
                 _iterTimer.reset();
                 auto predict = model->onForward(example.first)[0];
                 auto forwardTime = (float)_iterTimer.durationInUs() / 1000.0f;

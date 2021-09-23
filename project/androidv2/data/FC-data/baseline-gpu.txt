@@ -1,0 +1,2 @@
+I/MNNJNI: LOSS: 2.549379 || dataLoad:14.29 | Forward:2.12 | LossCalc:1.10 | Backward:684.22
+I/MNNJNI: LOSS: 2.251523 || dataLoad:14.37 | Forward:1.76 | LossCalc:0.95 | Backward:888.46

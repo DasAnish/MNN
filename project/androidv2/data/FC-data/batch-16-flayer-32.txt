@@ -1,0 +1,22 @@
+I/MNNJNI: LOSS: 3.387204 || dataLoad:1.50 | Forward:0.20 | LossCalc:0.17 | Backward:10.38
+I/MNNJNI: LOSS: 3.361423 || dataLoad:1.47 | Forward:0.20 | LossCalc:0.18 | Backward:10.58
+I/MNNJNI: LOSS: 3.232953 || dataLoad:1.47 | Forward:0.20 | LossCalc:0.18 | Backward:10.48
+I/MNNJNI: LOSS: 3.148365 || dataLoad:1.47 | Forward:0.21 | LossCalc:0.17 | Backward:10.44
+I/MNNJNI: LOSS: 2.926695 || dataLoad:1.46 | Forward:0.20 | LossCalc:0.17 | Backward:10.41
+I/MNNJNI: LOSS: 2.775527 || dataLoad:1.48 | Forward:0.20 | LossCalc:0.17 | Backward:10.36
+I/MNNJNI: LOSS: 2.711033 || dataLoad:1.46 | Forward:0.20 | LossCalc:0.17 | Backward:10.40
+I/MNNJNI: LOSS: 2.607290 || dataLoad:1.46 | Forward:0.20 | LossCalc:0.17 | Backward:10.39
+I/MNNJNI: LOSS: 2.445502 || dataLoad:1.47 | Forward:0.20 | LossCalc:0.17 | Backward:10.42
+I/MNNJNI: LOSS: 2.434103 || dataLoad:1.47 | Forward:0.20 | LossCalc:0.17 | Backward:10.42
+I/MNNJNI: train, 187, cost time: 1276.854004 ms
+I/MNNJNI: LOSS: 3.387210 || dataLoad:3.89 | Forward:0.51 | LossCalc:0.46 | Backward:389.65
+I/MNNJNI: LOSS: 3.361437 || dataLoad:4.49 | Forward:0.61 | LossCalc:0.55 | Backward:130.94
+I/MNNJNI: LOSS: 3.232980 || dataLoad:4.77 | Forward:0.66 | LossCalc:0.57 | Backward:134.66
+I/MNNJNI: LOSS: 3.148333 || dataLoad:4.77 | Forward:0.62 | LossCalc:0.55 | Backward:127.02
+I/MNNJNI: LOSS: 2.926509 || dataLoad:4.40 | Forward:0.59 | LossCalc:0.54 | Backward:126.18
+I/MNNJNI: LOSS: 2.775436 || dataLoad:4.79 | Forward:0.64 | LossCalc:0.56 | Backward:129.20
+I/MNNJNI: LOSS: 2.710969 || dataLoad:4.76 | Forward:0.63 | LossCalc:0.59 | Backward:127.67
+I/MNNJNI: LOSS: 2.607234 || dataLoad:5.63 | Forward:0.69 | LossCalc:0.64 | Backward:137.98
+I/MNNJNI: LOSS: 2.445533 || dataLoad:8.64 | Forward:1.04 | LossCalc:0.92 | Backward:172.16
+I/MNNJNI: LOSS: 2.433758 || dataLoad:7.62 | Forward:1.01 | LossCalc:0.87 | Backward:163.38
+I/MNNJNI: train, 187, cost time: 17599.351562 ms

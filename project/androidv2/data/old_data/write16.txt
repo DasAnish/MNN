@@ -1,0 +1,118 @@
+
+//loading corresponding values of vecA
+float16 vecA0 = Asub[WIDTH*k + 0][row];
+float16 vecA1 = Asub[WIDTH*k + 1][row];
+float16 vecA2 = Asub[WIDTH*k + 2][row];
+float16 vecA3 = Asub[WIDTH*k + 3][row];
+float16 vecA4 = Asub[WIDTH*k + 4][row];
+float16 vecA5 = Asub[WIDTH*k + 5][row];
+float16 vecA6 = Asub[WIDTH*k + 6][row];
+float16 vecA7 = Asub[WIDTH*k + 7][row];
+float16 vecA8 = Asub[WIDTH*k + 8][row];
+float16 vecA9 = Asub[WIDTH*k + 9][row];
+float16 vecAa = Asub[WIDTH*k + 10][row];
+float16 vecAb = Asub[WIDTH*k + 11][row];
+float16 vecAc = Asub[WIDTH*k + 12][row];
+float16 vecAd = Asub[WIDTH*k + 13][row];
+float16 vecAe = Asub[WIDTH*k + 14][row];
+float16 vecAf = Asub[WIDTH*k + 15][row];
+
+//the transpose lines
+float16 vecA0trans = (float16) (vecA0.s0, vecA1.s0, vecA2.s0, vecA3.s0, vecA4.s0, vecA5.s0, vecA6.s0, vecA7.s0, vecA8.s0, vecA9.s0, vecAa.s0, vecAb.s0, vecAc.s0, vecAd.s0, vecAe.s0, vecAf.s0);
+float16 vecA1trans = (float16) (vecA0.s1, vecA1.s1, vecA2.s1, vecA3.s1, vecA4.s1, vecA5.s1, vecA6.s1, vecA7.s1, vecA8.s1, vecA9.s1, vecAa.s1, vecAb.s1, vecAc.s1, vecAd.s1, vecAe.s1, vecAf.s1);
+float16 vecA2trans = (float16) (vecA0.s2, vecA1.s2, vecA2.s2, vecA3.s2, vecA4.s2, vecA5.s2, vecA6.s2, vecA7.s2, vecA8.s2, vecA9.s2, vecAa.s2, vecAb.s2, vecAc.s2, vecAd.s2, vecAe.s2, vecAf.s2);
+float16 vecA3trans = (float16) (vecA0.s3, vecA1.s3, vecA2.s3, vecA3.s3, vecA4.s3, vecA5.s3, vecA6.s3, vecA7.s3, vecA8.s3, vecA9.s3, vecAa.s3, vecAb.s3, vecAc.s3, vecAd.s3, vecAe.s3, vecAf.s3);
+float16 vecA4trans = (float16) (vecA0.s4, vecA1.s4, vecA2.s4, vecA3.s4, vecA4.s4, vecA5.s4, vecA6.s4, vecA7.s4, vecA8.s4, vecA9.s4, vecAa.s4, vecAb.s4, vecAc.s4, vecAd.s4, vecAe.s4, vecAf.s4);
+float16 vecA5trans = (float16) (vecA0.s5, vecA1.s5, vecA2.s5, vecA3.s5, vecA4.s5, vecA5.s5, vecA6.s5, vecA7.s5, vecA8.s5, vecA9.s5, vecAa.s5, vecAb.s5, vecAc.s5, vecAd.s5, vecAe.s5, vecAf.s5);
+float16 vecA6trans = (float16) (vecA0.s6, vecA1.s6, vecA2.s6, vecA3.s6, vecA4.s6, vecA5.s6, vecA6.s6, vecA7.s6, vecA8.s6, vecA9.s6, vecAa.s6, vecAb.s6, vecAc.s6, vecAd.s6, vecAe.s6, vecAf.s6);
+float16 vecA7trans = (float16) (vecA0.s7, vecA1.s7, vecA2.s7, vecA3.s7, vecA4.s7, vecA5.s7, vecA6.s7, vecA7.s7, vecA8.s7, vecA9.s7, vecAa.s7, vecAb.s7, vecAc.s7, vecAd.s7, vecAe.s7, vecAf.s7);
+float16 vecA8trans = (float16) (vecA0.s8, vecA1.s8, vecA2.s8, vecA3.s8, vecA4.s8, vecA5.s8, vecA6.s8, vecA7.s8, vecA8.s8, vecA9.s8, vecAa.s8, vecAb.s8, vecAc.s8, vecAd.s8, vecAe.s8, vecAf.s8);
+float16 vecA9trans = (float16) (vecA0.s9, vecA1.s9, vecA2.s9, vecA3.s9, vecA4.s9, vecA5.s9, vecA6.s9, vecA7.s9, vecA8.s9, vecA9.s9, vecAa.s9, vecAb.s9, vecAc.s9, vecAd.s9, vecAe.s9, vecAf.s9);
+float16 vecAatrans = (float16) (vecA0.sa, vecA1.sa, vecA2.sa, vecA3.sa, vecA4.sa, vecA5.sa, vecA6.sa, vecA7.sa, vecA8.sa, vecA9.sa, vecAa.sa, vecAb.sa, vecAc.sa, vecAd.sa, vecAe.sa, vecAf.sa);
+float16 vecAbtrans = (float16) (vecA0.sb, vecA1.sb, vecA2.sb, vecA3.sb, vecA4.sb, vecA5.sb, vecA6.sb, vecA7.sb, vecA8.sb, vecA9.sb, vecAa.sb, vecAb.sb, vecAc.sb, vecAd.sb, vecAe.sb, vecAf.sb);
+float16 vecActrans = (float16) (vecA0.sc, vecA1.sc, vecA2.sc, vecA3.sc, vecA4.sc, vecA5.sc, vecA6.sc, vecA7.sc, vecA8.sc, vecA9.sc, vecAa.sc, vecAb.sc, vecAc.sc, vecAd.sc, vecAe.sc, vecAf.sc);
+float16 vecAdtrans = (float16) (vecA0.sd, vecA1.sd, vecA2.sd, vecA3.sd, vecA4.sd, vecA5.sd, vecA6.sd, vecA7.sd, vecA8.sd, vecA9.sd, vecAa.sd, vecAb.sd, vecAc.sd, vecAd.sd, vecAe.sd, vecAf.sd);
+float16 vecAetrans = (float16) (vecA0.se, vecA1.se, vecA2.se, vecA3.se, vecA4.se, vecA5.se, vecA6.se, vecA7.se, vecA8.se, vecA9.se, vecAa.se, vecAb.se, vecAc.se, vecAd.se, vecAe.se, vecAf.se);
+float16 vecAftrans = (float16) (vecA0.sf, vecA1.sf, vecA2.sf, vecA3.sf, vecA4.sf, vecA5.sf, vecA6.sf, vecA7.sf, vecA8.sf, vecA9.sf, vecAa.sf, vecAb.sf, vecAc.sf, vecAd.sf, vecAe.sf, vecAf.sf);
+
+//Dot prods
+acc.s0 += dot(vecB.s0123, vecA0trans.s0123);
+acc.s0 += dot(vecB.s4567, vecA0trans.s4567);
+acc.s0 += dot(vecB.s89ab, vecA0trans.s89ab);
+acc.s0 += dot(vecB.scdef, vecA0trans.scdef);
+
+acc.s1 += dot(vecB.s0123, vecA1trans.s0123);
+acc.s1 += dot(vecB.s4567, vecA1trans.s4567);
+acc.s1 += dot(vecB.s89ab, vecA1trans.s89ab);
+acc.s1 += dot(vecB.scdef, vecA1trans.scdef);
+
+acc.s2 += dot(vecB.s0123, vecA2trans.s0123);
+acc.s2 += dot(vecB.s4567, vecA2trans.s4567);
+acc.s2 += dot(vecB.s89ab, vecA2trans.s89ab);
+acc.s2 += dot(vecB.scdef, vecA2trans.scdef);
+
+acc.s3 += dot(vecB.s0123, vecA3trans.s0123);
+acc.s3 += dot(vecB.s4567, vecA3trans.s4567);
+acc.s3 += dot(vecB.s89ab, vecA3trans.s89ab);
+acc.s3 += dot(vecB.scdef, vecA3trans.scdef);
+
+acc.s4 += dot(vecB.s0123, vecA4trans.s0123);
+acc.s4 += dot(vecB.s4567, vecA4trans.s4567);
+acc.s4 += dot(vecB.s89ab, vecA4trans.s89ab);
+acc.s4 += dot(vecB.scdef, vecA4trans.scdef);
+
+acc.s5 += dot(vecB.s0123, vecA5trans.s0123);
+acc.s5 += dot(vecB.s4567, vecA5trans.s4567);
+acc.s5 += dot(vecB.s89ab, vecA5trans.s89ab);
+acc.s5 += dot(vecB.scdef, vecA5trans.scdef);
+
+acc.s6 += dot(vecB.s0123, vecA6trans.s0123);
+acc.s6 += dot(vecB.s4567, vecA6trans.s4567);
+acc.s6 += dot(vecB.s89ab, vecA6trans.s89ab);
+acc.s6 += dot(vecB.scdef, vecA6trans.scdef);
+
+acc.s7 += dot(vecB.s0123, vecA7trans.s0123);
+acc.s7 += dot(vecB.s4567, vecA7trans.s4567);
+acc.s7 += dot(vecB.s89ab, vecA7trans.s89ab);
+acc.s7 += dot(vecB.scdef, vecA7trans.scdef);
+
+acc.s8 += dot(vecB.s0123, vecA8trans.s0123);
+acc.s8 += dot(vecB.s4567, vecA8trans.s4567);
+acc.s8 += dot(vecB.s89ab, vecA8trans.s89ab);
+acc.s8 += dot(vecB.scdef, vecA8trans.scdef);
+
+acc.s9 += dot(vecB.s0123, vecA9trans.s0123);
+acc.s9 += dot(vecB.s4567, vecA9trans.s4567);
+acc.s9 += dot(vecB.s89ab, vecA9trans.s89ab);
+acc.s9 += dot(vecB.scdef, vecA9trans.scdef);
+
+acc.sa += dot(vecB.s0123, vecAatrans.s0123);
+acc.sa += dot(vecB.s4567, vecAatrans.s4567);
+acc.sa += dot(vecB.s89ab, vecAatrans.s89ab);
+acc.sa += dot(vecB.scdef, vecAatrans.scdef);
+
+acc.sb += dot(vecB.s0123, vecAbtrans.s0123);
+acc.sb += dot(vecB.s4567, vecAbtrans.s4567);
+acc.sb += dot(vecB.s89ab, vecAbtrans.s89ab);
+acc.sb += dot(vecB.scdef, vecAbtrans.scdef);
+
+acc.sc += dot(vecB.s0123, vecActrans.s0123);
+acc.sc += dot(vecB.s4567, vecActrans.s4567);
+acc.sc += dot(vecB.s89ab, vecActrans.s89ab);
+acc.sc += dot(vecB.scdef, vecActrans.scdef);
+
+acc.sd += dot(vecB.s0123, vecAdtrans.s0123);
+acc.sd += dot(vecB.s4567, vecAdtrans.s4567);
+acc.sd += dot(vecB.s89ab, vecAdtrans.s89ab);
+acc.sd += dot(vecB.scdef, vecAdtrans.scdef);
+
+acc.se += dot(vecB.s0123, vecAetrans.s0123);
+acc.se += dot(vecB.s4567, vecAetrans.s4567);
+acc.se += dot(vecB.s89ab, vecAetrans.s89ab);
+acc.se += dot(vecB.scdef, vecAetrans.scdef);
+
+acc.sf += dot(vecB.s0123, vecAftrans.s0123);
+acc.sf += dot(vecB.s4567, vecAftrans.s4567);
+acc.sf += dot(vecB.s89ab, vecAftrans.s89ab);
+acc.sf += dot(vecB.scdef, vecAftrans.scdef);
+

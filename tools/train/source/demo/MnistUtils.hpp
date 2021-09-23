@@ -11,6 +11,7 @@
 #include <MNN/expr/Module.hpp>
 class MnistUtils {
 public:
-    static void train(std::shared_ptr<MNN::Express::Module> model, std::string root, MNNForwardType forwardType=MNN_FORWARD_OPENCL);
+    static void train(std::shared_ptr<MNN::Express::Module> model, std::string root,
+                      MNNForwardType forwardType=MNN_FORWARD_OPENCL);
 };
 #endif
