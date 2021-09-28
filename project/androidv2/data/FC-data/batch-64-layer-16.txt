@@ -8,8 +8,7 @@ I/MNNJNI: LOSS: 2.529380 || dataLoad:1.95 | Forward:0.20 | LossCalc:0.19 | Backw
 I/MNNJNI: LOSS: 2.518815 || dataLoad:2.00 | Forward:0.19 | LossCalc:0.19 | Backward:8.40
 I/MNNJNI: LOSS: 2.509580 || dataLoad:1.97 | Forward:0.19 | LossCalc:0.19 | Backward:8.34
 I/MNNJNI: LOSS: 2.493373 || dataLoad:1.98 | Forward:0.19 | LossCalc:0.20 | Backward:8.42
-    train, 187, cost time: 1159.699951 ms
-I/MNNJNI: LOSS: 2.739014 || dataLoad:5.80 | Forward:0.58 | LossCalc:0.59 | Backward:389.94
+DONE
 I/MNNJNI: LOSS: 2.695458 || dataLoad:5.60 | Forward:0.59 | LossCalc:0.58 | Backward:135.10
 I/MNNJNI: LOSS: 2.691947 || dataLoad:5.78 | Forward:0.59 | LossCalc:0.63 | Backward:141.01
 I/MNNJNI: LOSS: 2.637756 || dataLoad:5.75 | Forward:0.55 | LossCalc:0.55 | Backward:135.17
@@ -19,4 +18,3 @@ I/MNNJNI: LOSS: 2.529378 || dataLoad:6.11 | Forward:0.61 | LossCalc:0.61 | Backw
 I/MNNJNI: LOSS: 2.518812 || dataLoad:10.88 | Forward:0.99 | LossCalc:0.96 | Backward:186.96
 I/MNNJNI: LOSS: 2.509568 || dataLoad:10.90 | Forward:0.99 | LossCalc:0.92 | Backward:180.27
 I/MNNJNI: LOSS: 2.493378 || dataLoad:10.33 | Forward:0.94 | LossCalc:0.92 | Backward:186.74
-I/MNNJNI: train, 187, cost time: 19748.351562 ms
